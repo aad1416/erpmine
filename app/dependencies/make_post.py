@@ -1,0 +1,19 @@
+from typing import Annotated, Union
+
+from fastapi import Depends
+
+from app.dependencies.agent import get_agent_service
+from app.dependencies.documents import get_document_parser
+from app.services.agent_service import AgentService
+from app.services.make_post_service import MakePostService
+from app.utils.document_parser import DocumentParser
+from app.utils.fast_document_parser import FastDocumentParser
+
+
+def get_make_post_service(
+    agent_service: Annotated[AgentService, Depends(get_agent_service)],
+    parser: Annotated[
+        Union[DocumentParser, FastDocumentParser], Depends(get_document_parser)
+    ],
+) -> MakePostService:
+    return MakePostService(agent_service=agent_service, parser=parser)

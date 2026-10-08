@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "apps": {
+    "visualize-repo": {
+      "mode": "local-files",
+      "root": ".agent-native/visual-docs",
+      "entry": ".agent-native/visual-docs/repo-overview",
+      "targets": [
+        {
+          "id": "app-support-adapter-imap",
+          "name": "Imap",
+          "kind": "area",
+          "include": [
+            "app/support/adapter/imap"
+          ],
+          "blocks": [
+            "file-tree",
+            "diagram",
+            "annotated-code"
+          ],
+          "policy": "seed"
+        },
+        {
+          "id": "app-db-migrations-versions-c3d4e5f6a7b8_add_imap_thread_messages-py",
+          "name": "C3d4e5f6a7b8 Add Imap Thread Messages.Py",
+          "kind": "model",
+          "include": [
+            "app/db/migrations/versions/c3d4e5f6a7b8_add_imap_thread_messages.py"
+          ],
+          "blocks": [
+            "data-model",
+            "diagram",
+            "annotated-code"
+          ],
+          "policy": "required-on-pr"
+        }
+      ],
+      "hide": [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/dist/**",
+        "**/build/**",
+        "**/.agent-native/**"
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+__pycache__
+storage/
+.env
+.obsidian
+.venv/
+chunk_dump_*.json
+parsed_output_*.md
+comparison_*.md
+logs/eval_*.jsonl
+.scratch/
+docs/Retail ERP.*
+.agent-native/**/.plan-url
+.agent-native/**/.plan-state.json
+AGENTS.md
+docs/agents
+/CONTEXT.md

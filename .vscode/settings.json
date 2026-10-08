@@ -1,0 +1,21 @@
+{
+    "cSpell.words": [
+        "lyndom",
+        "metadatas",
+        "sessionmaker"
+    ],
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "${workspaceFolder:ut-ai}/storage/main.db",
+            "name": "main"
+        },
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "${workspaceFolder:ut-ai}/storage/vector_store/chroma.sqlite3",
+            "name": "chroma"
+        }
+    ],
+}

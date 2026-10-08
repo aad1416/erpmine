@@ -1,0 +1,22 @@
+stages:
+  - startup-stage-pipeline
+  - linting-stage-pipeline
+  - build-stage-pipeline
+  - deploy-stage-pipeline
+
+include:
+  - project: $IAC_ARTIFACTS_PROJECTS
+    ref: main
+    file:
+      - 'pipelines/default.node.pipeline.yml'
+
+variables:
+  DOCKER_FILE: 'Dockerfile'
+  HAMGIT_VALID_BRANCHES: '/stage/'
+  GITLAB_VALID_BRANCHES: '/main/'
+
+build:stage:
+  extends: .build_and_deploy:stage
+
+build:prod:
+  extends: .build_and_deploy:prod

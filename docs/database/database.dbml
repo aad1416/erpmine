@@ -1,0 +1,3352 @@
+Enum "cheque_status_enum" {
+  "NOT_REGISTERED"
+  "REGISTERED_BY_ISSUER"
+  "CONFIRMED_BY_RECEIVER"
+  "CASHED"
+}
+
+Enum "count_by_enum" {
+  "SERIAL"
+  "QUANTITY"
+}
+
+Enum "cycle_count_status_enum" {
+  "NEW"
+  "IN_PROGRESS"
+  "COMPLETED"
+  "CANCELLED"
+}
+
+Enum "field_service_task_status_enum" {
+  "PENDING"
+  "IN_PROGRESS"
+  "COMPLETED"
+  "CANCELLED"
+}
+
+Enum "field_service_task_type_enum" {
+  "SERVICE"
+  "STARTUP"
+}
+
+Enum "field_service_ticket_severity_enum" {
+  "LOW"
+  "MEDIUM"
+  "HIGH"
+}
+
+Enum "field_service_ticket_status_enum" {
+  "NEW"
+  "PENDING"
+  "IN_PROGRESS"
+  "COMPLETED"
+  "CANCELLED"
+}
+
+Enum "field_service_ticket_type_enum" {
+  "MANUAL"
+  "AUTO"
+  "ONLINE"
+}
+
+Enum "google_drive_file_type_enum" {
+  "SHEET"
+}
+
+Enum "import_report_status" {
+  "ONGOING"
+  "COUNTINT_FILE_ROWS"
+  "STOPPED"
+  "FINISHED"
+}
+
+Enum "instruction_change_type" {
+  "ADD"
+  "MODIFY"
+  "DELETE"
+}
+
+Enum "notification_audience_enum" {
+  "GLOBAL"
+  "STORE"
+  "SINGLE_USER"
+  "MULTIPLE_USERS"
+}
+
+Enum "part_request_status_enum" {
+  "PENDING"
+  "ISSUED"
+  "PARTIALLY_ISSUED"
+  "CANCELLED"
+}
+
+Enum "payment_type_enum" {
+  "CASH"
+  "ONLINE"
+  "CHEQUE"
+}
+
+Enum "production_instruction_type" {
+  "CAUTION"
+  "DANGER"
+  "INSTRUCTION"
+  "NOTE"
+  "WARNING"
+  "CAMERA"
+}
+
+Enum "production_task_status_enum" {
+  "PENDING"
+  "IN_PROGRESS"
+  "COMPLETED"
+  "CANCELLED"
+}
+
+Enum "purchase_order_check_enum" {
+  "NOT_CHEKCED"
+  "MATCH"
+  "MISMATCH"
+}
+
+Enum "purchase_order_entity_former_status_enum" {
+  "PENDING"
+  "ACKNOWLEDGED"
+  "STAGED"
+  "PARTIALLY_STAGED"
+  "PARTIALLY_RECEIVED"
+  "RECEIVED"
+  "CANCELLED"
+  "HOLD"
+}
+
+Enum "purchase_order_entity_status_enum" {
+  "PENDING"
+  "ACKNOWLEDGED"
+  "STAGED"
+  "PARTIALLY_STAGED"
+  "PARTIALLY_RECEIVED"
+  "RECEIVED"
+  "CANCELLED"
+  "HOLD"
+}
+
+Enum "purchase_order_payment_completion_status_enum" {
+  "FULLY_PAID"
+  "PARTIALLY_PAID"
+  "UNPAID"
+}
+
+Enum "purchase_quote_status" {
+  "PENDING"
+  "REJECTED"
+  "SOLD"
+}
+
+Enum "quote_check_enum" {
+  "NOT_CHEKCED"
+  "MATCH"
+  "MISMATCH"
+}
+
+Enum "quote_status_enum" {
+  "NEW"
+  "PENDING"
+  "SOLD"
+  "CANCELLED"
+  "EXPIRED"
+  "REVISED"
+}
+
+Enum "relationship_purpose_enum" {
+  "CLIENT"
+  "VENDOR"
+}
+
+Enum "relationship_status_enum" {
+  "PENDING"
+  "ACCEPTED"
+  "REJECTED"
+}
+
+Enum "rma_status_enum" {
+  "OPEN"
+  "SHIPPED"
+  "RECEIVED"
+  "COMPLETED"
+  "CANCELLED"
+}
+
+Enum "role_type_enum" {
+  "MANAGEMENT"
+  "STORE"
+}
+
+Enum "sales_order_check_enum" {
+  "NOT_CHEKCED"
+  "MATCH"
+  "MISMATCH"
+}
+
+Enum "sales_order_status_enum" {
+  "PENDING"
+  "ACKNOWLEDGED"
+  "IN_PROGRESS"
+  "PARTIALLY_SHIPPED"
+  "PARTIALLY_DELIVERED"
+  "DELIVERED"
+  "SHIPPED"
+  "CANCELLED"
+  "REVISED"
+  "COMPLETED"
+}
+
+Enum "sales_order_type_enum" {
+  "SALES"
+  "FIELD_SERVICE"
+}
+
+Enum "shipment_status_enum" {
+  "PENDING"
+  "SHIPPED"
+  "DELIVERED"
+  "CANCELLED"
+  "RETURNED"
+}
+
+Enum "shipment_type_enum" {
+  "NORMAL"
+  "DROP_SHIP"
+}
+
+Enum "spec_rule_type_enum" {
+  "WHITE_LIST"
+  "BLACK_LIST"
+}
+
+Enum "specification_scope_enum" {
+  "STORE"
+  "GENERAL"
+}
+
+Enum "specification_type_enum" {
+  "STRING"
+  "NUMBER"
+  "BOOLEAN"
+}
+
+Enum "timelog_status" {
+  "IN_PROGRESS"
+  "COMPLETED"
+  "PAUSED"
+}
+
+Enum "unit_status_enum" {
+  "ORDERED"
+  "IN_PROGRESS"
+  "IN_SHIPPING_PROGRESS"
+  "SHIPPED"
+  "DELIVERED"
+  "CANCELLED"
+}
+
+Enum "warranty_status_enum" {
+  "ACTIVE"
+  "EXPIRED"
+}
+
+Table "ds_templates" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "name" text [not null]
+  "is_active" bool [not null, default: true]
+  "type" text [not null, default: '']
+  "description" text [not null]
+  "pages" jsonb [not null, default: `[]`]
+}
+
+Table "idempotency_keys" {
+  "id" uuid [pk, not null]
+  "idempotency_key" varchar(255) [unique, not null]
+
+  Indexes {
+    idempotency_key [type: btree, name: "idempotency_keys_idempotency_key_index"]
+  }
+}
+
+Table "production_instruction_sets" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "description" text [not null]
+  "auto_generate" bool [not null, default: false]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+  "department_id" uuid
+}
+
+Table "instructions" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "set_id" uuid [not null]
+  "instruction_info_title" text [not null]
+  "instruction_info_subtitle" text [not null]
+  "instruction_info_content" text [not null]
+  "instruction_info_step" text [not null]
+  "instruction_info_args" jsonb [not null]
+  "instruction_info_checkboxes" jsonb [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+  "instruction_info_type" production_instruction_type [not null, default: 'INSTRUCTION']
+}
+
+Table "project_configs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "is_item_store_private" bool [not null]
+}
+
+Table "users" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "first_name" text [not null]
+  "last_name" text [not null]
+  "full_name" text [not null]
+  "username" text [unique, not null]
+  "email" text
+  "phone" text
+  "password" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid
+
+  Indexes {
+    created_at [type: btree, name: "users_created_at_index"]
+    email [type: btree, name: "users_email_index"]
+    full_name [type: btree, name: "users_full_name_index"]
+    is_active [type: btree, name: "users_is_active_index"]
+    username [type: btree, name: "users_username_index"]
+  }
+}
+
+Table "stores" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "name" text [not null]
+  "contact_info_name" text
+  "contact_info_email" text
+  "contact_info_phone" text
+  "address_info_state" text [not null, default: '']
+  "address_info_city" text [not null]
+  "address_info_address" text [not null]
+  "address_info_latitude" numeric(9,6)
+  "address_info_longitude" numeric(9,6)
+  "address_info_postal_code" text
+  "address_info_building_number" text
+  "address_info_unit" text
+  "website" text
+  "owner_id" uuid
+  "is_active" bool [not null, default: true]
+  "external_file_manager_url" text
+  "external_file_manager_token" text
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "stores_created_at_index"]
+    is_active [type: btree, name: "stores_is_active_index"]
+    name [type: btree, name: "stores_name_index"]
+    owner_id [type: btree, name: "stores_owner_id_index"]
+  }
+}
+
+Table "store_misc_settings" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "template_id" uuid
+  "popular_categories" jsonb [not null, default: `[]`]
+  "popular_categories2" jsonb [not null, default: `[]`]
+  "selected_categories" jsonb [not null, default: `[]`]
+  "latest_categories" jsonb [not null, default: `[]`]
+  "dynamic_categories" jsonb [not null, default: `[]`]
+  "popular_item_stores" jsonb [not null, default: `[]`]
+  "special_offer_item_stores" jsonb [not null, default: `[]`]
+}
+
+Table "store_configs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "default_quote_expiry_days" int4 [not null]
+  "inventory_item_serial_number_prefix" text [not null, default: '']
+  "auto_generate_part_request" bool [not null, default: false]
+  "to_be_invoiced_date_days" int4 [not null, default: 30]
+  "standard_warranty_enabled" bool [not null, default: true]
+  "standard_warranty_days" int4 [not null, default: 365]
+}
+
+Table "relationship_requests" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "target_store_id" uuid [not null]
+  "purpose" relationship_purpose_enum [not null]
+  "status" relationship_status_enum [not null]
+  "local_id" text [not null]
+}
+
+Table "production_default_tasks" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "title" text [not null]
+  "description" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "notificaitons" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "is_active" bool [not null, default: true]
+  "title" text [not null]
+  "text" text [not null]
+  "is_error" bool [not null, default: false]
+  "logo" text
+  "redirect" text
+  "progress" int4
+  "urls" jsonb
+  "audience" notification_audience_enum [not null]
+  "target_store_id" uuid
+  "date" int8 [not null]
+
+  Indexes {
+    is_active [type: btree, name: "notificaitons_is_active_index"]
+  }
+}
+
+Table "import_reports" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "user" text [not null]
+  "status" import_report_status [not null]
+  "date" int8 [not null]
+  "estimated_seconds_remaining" int4 [not null, default: 0]
+  "entity" text [not null]
+  "summary" jsonb [not null]
+  "total_errors" int4 [not null]
+  "processed_rows" int4 [not null]
+  "total_rows" int4 [not null]
+}
+
+Table "import_report_full_report_row" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "row_number" int4 [not null]
+  "error" text [not null]
+  "value" text [not null]
+  "helper_value" text [not null]
+  "import_report_id" uuid [not null]
+}
+
+Table "google_drive_files" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "file_id" text [not null]
+  "mime_type" text [not null]
+  "type" google_drive_file_type_enum [not null]
+}
+
+Table "ds_template_configs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "template_id" uuid [not null]
+  "config" jsonb [not null, default: `[]`]
+}
+
+Table "ds_sliders" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "order" int4 [not null, default: 0]
+  "description" text
+  "related_link" text
+  "is_active" bool [not null, default: true]
+}
+
+Table "ds_nav_bar" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "search_bar" jsonb [not null]
+  "login" jsonb [not null]
+  "categories" jsonb [not null]
+  "links" jsonb [not null]
+  "cart" jsonb [not null]
+}
+
+Table "ds_footers" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "description" jsonb [not null]
+  "links" jsonb [not null]
+  "social_links" jsonb [not null]
+  "categories" jsonb [not null]
+}
+
+Table "ds_blog_posts" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "date" int8 [not null]
+  "title" text [not null]
+  "content" text [not null]
+  "summary" text [not null]
+  "is_draft" bool [not null, default: true]
+  "author" text [not null]
+  "is_active" bool [not null, default: true]
+}
+
+Table "service_selectors" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "label" text [not null]
+  "store_id" uuid [not null]
+  "description" text
+  "creator_id" uuid [not null]
+}
+
+Table "roles" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid
+  "name" text [not null]
+  "accesses" jsonb [not null]
+  "type" role_type_enum [not null]
+  "protected" bool [not null]
+  "creator_id" uuid [not null]
+  "is_active" bool [not null, default: true]
+
+  Indexes {
+    created_at [type: btree, name: "roles_created_at_index"]
+    name [type: btree, name: "roles_name_index"]
+    protected [type: btree, name: "roles_protected_index"]
+    type [type: btree, name: "roles_type_index"]
+  }
+}
+
+Table "purchase_order_types" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "protected" bool [not null, default: false]
+  "creator_id" uuid [not null]
+}
+
+Table "payments" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "amount" numeric(12,2) [not null]
+  "description" text [not null]
+  "date" int8 [not null]
+  "payment_type" payment_type_enum [not null]
+  "cheque_status" cheque_status_enum
+  "destination" text
+  "reference_number" text
+  "issuer" text
+  "receiver" text
+  "receiver_national_id" text
+  "creator_id" uuid [not null]
+
+  Indexes {
+    amount [type: btree, name: "payments_amount_index"]
+    cheque_status [type: btree, name: "payments_cheque_status_index"]
+    created_at [type: btree, name: "payments_created_at_index"]
+    date [type: btree, name: "payments_date_index"]
+    payment_type [type: btree, name: "payments_payment_type_index"]
+    store_id [type: btree, name: "payments_store_id_index"]
+  }
+}
+
+Table "option_selectors" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "label" text [not null]
+  "store_id" uuid [not null]
+  "description" text
+  "creator_id" uuid [not null]
+}
+
+Table "notificaiton_user" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "notification_id" uuid [not null]
+  "user_id" uuid [not null]
+  "seen" bool [not null, default: false]
+
+  Indexes {
+    notification_id [type: btree, name: "notificaiton_user_notification_id_index"]
+    user_id [type: btree, name: "notificaiton_user_user_id_index"]
+  }
+}
+
+Table "notes" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "subject" text
+  "note" text [not null]
+  "store_id" uuid
+  "owner_id" uuid [not null]
+  "owner_type" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "news_letters" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "subject" text
+  "date" int8 [not null]
+  "title" text [not null]
+  "content" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "locations" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "parent_location_name" text
+  "parent_location_id" uuid
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "locations_created_at_index"]
+    is_active [type: btree, name: "locations_is_active_index"]
+    name [type: btree, name: "locations_name_index"]
+    parent_location_id [type: btree, name: "locations_parent_location_id_index"]
+    store_id [type: btree, name: "locations_store_id_index"]
+  }
+}
+
+Table "leadtimes" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "value" int4 [not null, default: 1]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+  "isimported" bool [not null, default: false]
+
+  Indexes {
+    created_at [type: btree, name: "leadtimes_created_at_index"]
+    is_active [type: btree, name: "leadtimes_is_active_index"]
+    name [type: btree, name: "leadtimes_name_index"]
+  }
+}
+
+Table "item_types" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "protected" bool [not null, default: false]
+  "creator_id" uuid [not null]
+}
+
+Table "guilds" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "name" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    is_active [type: btree, name: "guilds_is_active_index"]
+    name [type: btree, name: "guilds_name_index"]
+  }
+}
+
+Table "stores_guilds" {
+  "store_entity_id" uuid [not null]
+  "guild_entity_id" uuid [not null]
+
+  Indexes {
+    (store_entity_id, guild_entity_id) [pk, type: btree, name: "stores_guilds_pkey"]
+  }
+}
+
+Table "files" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid
+  "owner_type" text [not null]
+  "owner_id" text [not null]
+  "name" text [not null]
+  "title" text
+  "description" text
+  "file_type" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "files_created_at_index"]
+    file_type [type: btree, name: "files_file_type_index"]
+    is_active [type: btree, name: "files_is_active_index"]
+    owner_id [type: btree, name: "files_owner_id_index"]
+    owner_type [type: btree, name: "files_owner_type_index"]
+  }
+}
+
+Table "news_letter_files" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "newsletter_id" uuid [not null]
+  "file_id" uuid [not null]
+  "is_attached" bool [not null, default: true]
+}
+
+Table "departments" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "creator_id" uuid [not null]
+  "protected" bool [not null, default: false]
+}
+
+Table "cross_checks" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "label" text [not null]
+  "file_id" uuid [not null]
+  "store_id" uuid [not null]
+  "description" text
+  "creator_id" uuid [not null]
+}
+
+Table "credit_terms" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "cost_estimates" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "label" text [not null]
+  "cost" numeric(12,2) [not null]
+  "store_id" uuid [not null]
+  "description" text
+  "creator_id" uuid [not null]
+}
+
+Table "cost_estimate_specs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "cost_estimate_id" uuid [not null]
+  "category_id" uuid [not null]
+  "spec_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+
+  Indexes {
+    cost_estimate_id [type: btree, name: "cost_estimate_specs_cost_estimate_id_index"]
+    spec_id [type: btree, name: "cost_estimate_specs_spec_id_index"]
+    value [type: btree, name: "cost_estimate_specs_value_index"]
+  }
+}
+
+Table "contacts" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid
+  "name" varchar(255) [not null]
+  "email" text
+  "phone" text
+  "owner_id" uuid [not null]
+  "owner_type" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "contacts_created_at_index"]
+    email [type: btree, name: "contacts_email_index"]
+    is_active [type: btree, name: "contacts_is_active_index"]
+    owner_id [type: btree, name: "contacts_owner_id_index"]
+    owner_type [type: btree, name: "contacts_owner_type_index"]
+    phone [type: btree, name: "contacts_phone_index"]
+    store_id [type: btree, name: "contacts_store_id_index"]
+  }
+}
+
+Table "clients" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "reference_store_id" uuid
+  "name" text [not null]
+  "contact_info_name" text
+  "contact_info_email" text
+  "contact_info_phone" text
+  "address_info_state" text [not null, default: '']
+  "address_info_city" text [not null]
+  "address_info_address" text [not null]
+  "address_info_latitude" numeric(9,6)
+  "address_info_longitude" numeric(9,6)
+  "address_info_postal_code" text
+  "address_info_building_number" text
+  "address_info_unit" text
+  "also_rep" bool [not null, default: false]
+  "regular_commission_percentage" int4
+  "overage_commission_percentage" int4
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+  "credit_terms_id" uuid
+  "isimported" bool [not null, default: false]
+
+  Indexes {
+    created_at [type: btree, name: "clients_created_at_index"]
+    is_active [type: btree, name: "clients_is_active_index"]
+    name [type: btree, name: "clients_name_index"]
+  }
+}
+
+Table "news_letter_view_reports" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "newsletter_id" uuid [not null]
+  "rep_id" uuid
+  "contact_id" uuid
+  "email" text [not null]
+  "sent_at" int8 [not null]
+  "seen_at" int8
+  "seen" bool [not null, default: false]
+  "resend_count" int4 [not null, default: 0]
+  "total_views" int4 [not null, default: 0]
+  "views" jsonb [not null]
+}
+
+Table "checklists" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "order" int4 [not null, default: 0]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "checklist_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "checklist_id" uuid [not null]
+  "title" text [not null]
+  "description" text
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "categories" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid
+  "name" text [not null]
+  "alternative_name" text [not null, default: '']
+  "alternative_description" text
+  "description" text
+  "level" int4 [not null, default: 0]
+  "parent_category_id" uuid
+  "parent_category_name" text
+  "reference_category_id" uuid
+  "creator_id" uuid [not null]
+  "product_line" bool [not null, default: false]
+  "manufacturing_category" bool [not null, default: false]
+  "order" int4 [not null, default: 1]
+  "display_order" text [not null, default: '']
+  "is_shadow" bool [not null, default: false]
+  "is_active" bool [not null, default: true]
+  "metadata" jsonb [not null, default: `{}`]
+  "id_in_other_stores" jsonb [not null, default: `{}`]
+  "item_config_is_option" bool [not null, default: false]
+  "item_config_is_service" bool [not null, default: false]
+  "item_config_is_warranty" bool [not null, default: false]
+  "item_config_is_assembly" bool [not null, default: false]
+  "item_config_is_spare_parts" bool [not null, default: false]
+  "pricing" jsonb [not null, default: `[]`]
+
+  Indexes {
+    created_at [type: btree, name: "categories_created_at_index"]
+    name [type: btree, name: "categories_name_index"]
+    parent_category_id [type: btree, name: "categories_parent_category_id_index"]
+  }
+}
+
+Table "specifications" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "scope" specification_scope_enum [not null]
+  "store_id" uuid
+  "name" text [not null]
+  "description" text
+  "type" specification_type_enum [not null]
+  "values" jsonb
+  "category_id" uuid [not null]
+  "is_primary" bool [not null, default: false]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "spec_rules" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null, default: '']
+  "source_specification_id" uuid [not null]
+  "source_value" text [not null]
+  "source_unit" text [not null]
+  "reason" text [not null]
+  "is_active" bool [not null, default: true]
+  "category_id" uuid [not null]
+  "strict" bool [not null, default: false]
+  "type" spec_rule_type_enum [not null]
+  "creator_id" uuid [not null]
+}
+
+Table "spec_rule_targets" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "spec_rule_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "value" text [not null]
+  "unit" text [not null]
+}
+
+Table "service_selector_sources" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "service_selector_id" uuid [not null]
+  "category_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+
+  Indexes {
+    category_id [type: btree, name: "service_selector_sources_category_id_index"]
+    service_selector_id [type: btree, name: "service_selector_sources_service_selector_id_index"]
+    specification_id [type: btree, name: "service_selector_sources_specification_id_index"]
+    value [type: btree, name: "service_selector_sources_value_index"]
+  }
+}
+
+Table "service_selector_destinations" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "service_selector_id" uuid [not null]
+  "category_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+
+  Indexes {
+    category_id [type: btree, name: "service_selector_destinations_category_id_index"]
+    service_selector_id [type: btree, name: "service_selector_destinations_service_selector_id_index"]
+    specification_id [type: btree, name: "service_selector_destinations_specification_id_index"]
+    value [type: btree, name: "service_selector_destinations_value_index"]
+  }
+}
+
+Table "production_default_task_set_specs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "production_default_task_id" uuid [not null]
+  "category_id" uuid [not null]
+  "spec_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+}
+
+Table "option_selector_sources" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "option_selector_id" uuid [not null]
+  "category_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+
+  Indexes {
+    category_id [type: btree, name: "option_selector_sources_category_id_index"]
+    option_selector_id [type: btree, name: "option_selector_sources_option_selector_id_index"]
+    specification_id [type: btree, name: "option_selector_sources_specification_id_index"]
+    value [type: btree, name: "option_selector_sources_value_index"]
+  }
+}
+
+Table "option_selector_destinations" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "option_selector_id" uuid [not null]
+  "category_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+
+  Indexes {
+    category_id [type: btree, name: "option_selector_destinations_category_id_index"]
+    option_selector_id [type: btree, name: "option_selector_destinations_option_selector_id_index"]
+    specification_id [type: btree, name: "option_selector_destinations_specification_id_index"]
+    value [type: btree, name: "option_selector_destinations_value_index"]
+  }
+}
+
+Table "items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid
+  "no" text [not null]
+  "name" text [not null]
+  "description" text [not null]
+  "category_id" uuid
+  "barcode" text [not null]
+  "length" numeric(10,2)
+  "width" numeric(10,2)
+  "height" numeric(10,2)
+  "length_unit" text
+  "weight" numeric(10,2)
+  "weight_unit" text
+  "is_active" bool [not null, default: true]
+  "is_private" bool [not null, default: false]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    barcode [type: btree, name: "items_barcode_index"]
+    category_id [type: btree, name: "items_category_id_index"]
+    is_active [type: btree, name: "items_is_active_index"]
+    name [type: btree, name: "items_name_index"]
+    no [type: btree, name: "items_no_index"]
+    store_id [type: btree, name: "items_store_id_index"]
+  }
+}
+
+Table "item_specifications" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "item_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "specification_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null, default: '']
+}
+
+Table "production_instruction_set_specs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "instruction_set_id" uuid [not null]
+  "category_id" uuid [not null]
+  "spec_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+}
+
+Table "guilds_categories" {
+  "guild_entity_id" uuid [not null]
+  "category_entity_id" uuid [not null]
+
+  Indexes {
+    (guild_entity_id, category_entity_id) [pk, type: btree, name: "guilds_categories_pkey"]
+  }
+}
+
+Table "ds_blog_posts_categories" {
+  "dsblog_post_entity_id" uuid [not null]
+  "category_entity_id" uuid [not null]
+
+  Indexes {
+    (dsblog_post_entity_id, category_entity_id) [pk, type: btree, name: "ds_blog_posts_categories_pkey"]
+  }
+}
+
+Table "cross_check_applies_to" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "cross_check_id" uuid [not null]
+  "category_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "spec_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null]
+
+  Indexes {
+    category_id [type: btree, name: "cross_check_applies_to_category_id_index"]
+    cross_check_id [type: btree, name: "cross_check_applies_to_cross_check_id_index"]
+    specification_id [type: btree, name: "cross_check_applies_to_specification_id_index"]
+    value [type: btree, name: "cross_check_applies_to_value_index"]
+  }
+}
+
+Table "carriers" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "carriers_created_at_index"]
+    is_active [type: btree, name: "carriers_is_active_index"]
+    name [type: btree, name: "carriers_name_index"]
+  }
+}
+
+Table "shipping_service_types" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "carrier_id" uuid [not null]
+  "name" text [not null]
+  "description" text
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "addresses" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid
+  "state" text [not null, default: '']
+  "city" text [not null]
+  "address" text [not null]
+  "latitude" numeric(9,6)
+  "longitude" numeric(9,6)
+  "postal_code" text
+  "building_number" text
+  "unit" text
+  "name" text [not null]
+  "owner_id" uuid [not null]
+  "owner_type" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    city [type: btree, name: "addresses_city_index"]
+    created_at [type: btree, name: "addresses_created_at_index"]
+    is_active [type: btree, name: "addresses_is_active_index"]
+    latitude [type: btree, name: "addresses_latitude_index"]
+    longitude [type: btree, name: "addresses_longitude_index"]
+    owner_id [type: btree, name: "addresses_owner_id_index"]
+    owner_type [type: btree, name: "addresses_owner_type_index"]
+    state [type: btree, name: "addresses_state_index"]
+    store_id [type: btree, name: "addresses_store_id_index"]
+  }
+}
+
+Table "users_departments" {
+  "user_entity_id" uuid [not null]
+  "department_entity_id" uuid [not null]
+
+  Indexes {
+    (user_entity_id, department_entity_id) [pk, type: btree, name: "users_departments_pkey"]
+  }
+}
+
+Table "users_roles" {
+  "user_entity_id" uuid [not null]
+  "role_entity_id" uuid [not null]
+
+  Indexes {
+    (user_entity_id, role_entity_id) [pk, type: btree, name: "users_roles_pkey"]
+  }
+}
+
+Table "user_stores" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "user_id" uuid [not null]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "user_stores_created_at_index"]
+    store_id [type: btree, name: "user_stores_store_id_index"]
+    user_id [type: btree, name: "user_stores_user_id_index"]
+  }
+}
+
+Table "user_types" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "user_id" uuid [not null]
+  "type" text [not null]
+}
+
+Table "variants" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "category_id" uuid [not null]
+  "name" text [not null]
+  "values" jsonb [not null]
+  "store_id" uuid [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "vendors" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "reference_store_id" uuid
+  "name" text [not null]
+  "website" text
+  "is_active" bool [not null, default: true]
+  "contact_info_name" text
+  "contact_info_email" text
+  "contact_info_phone" text
+  "address_info_state" text [not null, default: '']
+  "address_info_city" text [not null]
+  "address_info_address" text [not null]
+  "address_info_latitude" numeric(9,6)
+  "address_info_longitude" numeric(9,6)
+  "address_info_postal_code" text
+  "address_info_building_number" text
+  "address_info_unit" text
+  "is_tech" bool [not null, default: false]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "vendors_created_at_index"]
+    is_active [type: btree, name: "vendors_is_active_index"]
+    name [type: btree, name: "vendors_name_index"]
+    store_id [type: btree, name: "vendors_store_id_index"]
+  }
+}
+
+Table "item_stores" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "no" text [not null]
+  "name" text [not null]
+  "description" text [not null]
+  "not_shippable" bool [not null, default: false]
+  "shipping_checklist_not_required" bool [not null, default: false]
+  "consider_for_required_items" bool [default: false]
+  "do_not_increase_children_items_allocation_quantity" bool [default: false]
+  "category_id" uuid
+  "barcode" text [not null]
+  "length" numeric(10,2)
+  "width" numeric(10,2)
+  "height" numeric(10,2)
+  "length_unit" text
+  "weight" numeric(10,2)
+  "weight_unit" text
+  "item_id" uuid [not null]
+  "count_by" count_by_enum [not null]
+  "used_in_last90days" int4 [not null, default: 0]
+  "used_in_last365days" int4 [not null, default: 0]
+  "used_in_last180days" int4 [not null, default: 0]
+  "last_count" int8
+  "last_used_in_ajob" int8
+  "recent_purchase_price_by" numeric(12,2) [not null, default: 0]
+  "price_multiplier" numeric(12,2) [not null, default: 1]
+  "price" numeric(12,2) [not null, default: 0]
+  "is_on_sale" bool [not null, default: false]
+  "on_sale_price" numeric(12,2) [not null, default: 0]
+  "allocated_quantity" numeric(12,2) [not null, default: 0]
+  "allocated_quantity_uom" numeric(12,2) [not null, default: 0]
+  "archived" bool [not null, default: false]
+  "archived_date" int8
+  "on_hand_quantity" numeric(12,2) [not null, default: 0]
+  "on_hand_quantity_uom" numeric(12,2) [not null, default: 0]
+  "on_order_quantity" numeric(12,2) [not null, default: 0]
+  "on_order_quantity_uom" numeric(12,2) [not null, default: 0]
+  "fifo_value" numeric(14,2) [not null, default: 0]
+  "on_hand_total_value" numeric(14,2) [not null, default: 0]
+  "do_not_track_quantity" bool [not null, default: false]
+  "sales_approval" bool [not null, default: true]
+  "shipping_approval" bool [not null, default: true]
+  "note" text
+  "lead_time" numeric(12,2) [not null, default: 0]
+  "reorder_quantity" numeric(12,2) [not null, default: 0]
+  "trigger_quantity" numeric(12,2) [not null, default: '-1']
+  "online_sale_quantity" numeric(12,2) [not null, default: 0]
+  "overhead" numeric(12,2) [not null, default: 0]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "use_tariff_for_purchasing" bool [not null, default: false]
+  "main_uom_id" uuid
+  "taxable" bool [not null, default: false]
+  "dont_order_on_purchase_orders" bool [not null, default: false]
+  "rnd_only" bool [not null, default: false]
+  "obsolete" bool [not null, default: false]
+  "field_service_item" bool [not null, default: false]
+  "non_inventory_item" bool [not null, default: false]
+  "is_active" bool [not null, default: true]
+  "has_bom" bool [not null, default: false]
+  "override" numeric(12,2) [not null, default: 0]
+  "override_use" bool [not null, default: false]
+  "part_cost" numeric(12,2) [not null, default: 0]
+  "labor_cost" numeric(12,2) [not null, default: 0]
+  "labor_time" numeric(12,2)
+  "total_cost" numeric(12,2) [not null, default: 0]
+  "preferred_vendor_id" uuid
+  "preferred_vendor_sku" text
+  "pricing" jsonb [not null]
+  "creator_id" uuid [not null]
+  "generate_unit" bool [not null, default: true]
+  "item_type_id" uuid
+  "gl_code" text
+  "gl_description" text
+  "default_location_id" uuid
+  "spec_rule_flag" bool [not null, default: false]
+  "spec_rule_id" uuid
+  "item_config_is_option" bool [not null, default: false]
+  "item_config_is_service" bool [not null, default: false]
+  "item_config_is_warranty" bool [not null, default: false]
+  "item_config_is_assembly" bool [not null, default: false]
+  "item_config_is_spare_parts" bool [not null, default: false]
+
+  Indexes {
+    archived [type: btree, name: "item_stores_archived_index"]
+    category_id [type: btree, name: "item_stores_category_id_index"]
+    count_by [type: btree, name: "item_stores_count_by_index"]
+    created_at [type: btree, name: "item_stores_created_at_index"]
+    description [type: btree, name: "item_stores_description_index"]
+    is_active [type: btree, name: "item_stores_is_active_index"]
+    name [type: btree, name: "item_stores_name_index"]
+    no [type: btree, name: "item_stores_no_index"]
+    on_hand_quantity [type: btree, name: "item_stores_on_hand_quantity_index"]
+    store_id [type: btree, name: "item_stores_store_id_index"]
+  }
+}
+
+Table "vending" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "vendor_id" uuid [not null]
+  "vendor_name" text [not null]
+  "item_store_id" uuid [not null]
+  "is_active" bool [not null, default: true]
+  "cost" numeric(12,2) [not null]
+  "lead_time" int4 [not null]
+  "sku" text
+  "preferred" bool [not null, default: false]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "vending_created_at_index"]
+    is_active [type: btree, name: "vending_is_active_index"]
+    item_store_id [type: btree, name: "vending_item_store_id_index"]
+    preferred [type: btree, name: "vending_preferred_index"]
+    store_id [type: btree, name: "vending_store_id_index"]
+    vendor_id [type: btree, name: "vending_vendor_id_index"]
+  }
+}
+
+Table "uoms" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "name" text [not null]
+  "coefficient" numeric(12,2) [not null, default: 1]
+  "is_main" bool [not null, default: false]
+  "is_active" bool [not null, default: true]
+  "item_store_id" uuid [not null]
+  "is_default" bool [not null, default: false]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "uoms_created_at_index"]
+    is_active [type: btree, name: "uoms_is_active_index"]
+    is_main [type: btree, name: "uoms_is_main_index"]
+    item_store_id [type: btree, name: "uoms_item_store_id_index"]
+    name [type: btree, name: "uoms_name_index"]
+  }
+}
+
+Table "required_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "item_store_id" uuid [not null]
+  "item_no" text [not null]
+  "item_name" text [not null]
+  "on_hand_quantity" numeric(12,2) [not null, default: 0]
+  "on_order_quantity" numeric(12,2) [not null, default: 0]
+  "allocated_quantity" numeric(12,2) [not null, default: 0]
+  "reorder_quantity" numeric(12,2) [not null, default: 0]
+  "trigger_quantity" numeric(12,2) [not null, default: 0]
+  "required_quantity" numeric(12,2) [not null, default: 0]
+  "preferred_vendor_name" text
+  "preferred_vendor_id" uuid
+  "uom_id" uuid
+  "uom_name" text
+  "uom_coefficient" numeric(12,2)
+  "sales_order_ids" jsonb [not null, default: `{}`]
+  "sales_order_numbers" jsonb [not null, default: `{}`]
+  "unit_info" jsonb [not null, default: `{}`]
+}
+
+Table "location_change_logs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "user_id" uuid [not null]
+  "before_location_id" uuid [not null]
+  "after_location_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "time" int8 [not null]
+}
+
+Table "item_store_variants" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "item_store_id" uuid [not null]
+  "variant_id" uuid [not null]
+  "variant_name" text [not null]
+  "value" text [not null]
+}
+
+Table "item_store_specifications" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "item_store_id" uuid [not null]
+  "specification_id" uuid [not null]
+  "specification_name" text [not null]
+  "value" text [not null]
+  "unit" text [not null, default: '']
+
+  Indexes {
+    item_store_id [type: btree, name: "item_store_specifications_item_store_id_index"]
+    specification_id [type: btree, name: "item_store_specifications_specification_id_index"]
+  }
+}
+
+Table "cycle_counts" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "status" cycle_count_status_enum [not null]
+  "date" int8 [not null]
+  "reported_count" int4 [not null]
+  "item_on_hand_quantity" numeric(12,2) [not null]
+  "resolved" bool [not null, default: false]
+  "resolved_quantity" numeric(12,2)
+  "assignee_first_name" text [not null]
+  "assignee_last_name" text [not null]
+  "tag_number" text [not null]
+  "direct" bool [not null, default: false]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "cycle_counts_created_at_index"]
+    date [type: btree, name: "cycle_counts_date_index"]
+    item_store_id [type: btree, name: "cycle_counts_item_store_id_index"]
+    resolved [type: btree, name: "cycle_counts_resolved_index"]
+    status [type: btree, name: "cycle_counts_status_index"]
+    store_id [type: btree, name: "cycle_counts_store_id_index"]
+  }
+}
+
+Table "client_skus" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "client_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "item_name" text
+  "item_no" text [not null]
+}
+
+Table "boms" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "name" text [not null]
+  "revision" text [not null]
+  "description" text [not null]
+  "is_active" bool [not null, default: true]
+  "cost" numeric(12,2) [not null]
+  "current" bool [not null, default: false]
+  "store_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "record_count" numeric(12,2) [not null]
+  "note" text
+  "is_matrice" bool [not null, default: false]
+  "creator_id" uuid [not null]
+}
+
+Table "bom_records" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "bom_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "quantity" numeric(12,2) [not null]
+  "item_name" text [not null]
+  "item_no" text [not null]
+  "item_description" text [not null]
+  "name" text
+  "note" text
+  "fixed_quantity" bool [not null, default: false]
+  "creator_id" uuid [not null]
+}
+
+Table "field_service_tickets" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "number" text [not null]
+  "engineering_help" bool [not null, default: false]
+  "sales_help" bool [not null, default: false]
+  "purchasing_help" bool [not null, default: false]
+  "customer_visibility" bool [not null, default: false]
+  "title" text [not null]
+  "date" int8 [not null]
+  "status" field_service_ticket_status_enum [not null]
+  "type" field_service_ticket_type_enum [not null, default: 'MANUAL']
+  "severity" field_service_ticket_severity_enum [not null]
+  "unit_item_no" text
+  "unit_item_category_name" text
+  "sales_order_id" uuid
+  "sales_order_number" text
+  "unit_id" uuid
+  "unit_serial_number" text
+  "created_by_id" uuid [not null]
+  "assigned_to_id" uuid
+  "description" text [not null]
+  "contact_info_name" text
+  "contact_info_email" text
+  "contact_info_phone" text
+  "rca_report_info_problem_definition" text [not null]
+  "rca_report_info_cause_identification" text [not null]
+  "rca_report_info_preventine_action_identification" text [not null]
+  "vendor_tech_id" uuid
+  "purchase_order_id" uuid
+  "purchase_order_number" text
+  "purchase_order_date_sent" int8
+  "purchase_order_creator_name" text
+  "vendor_email" text
+}
+
+Table "purchase_orders" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "tracking_number" text
+  "store_id" uuid [not null]
+  "discount_rate" numeric(12,2) [not null, default: 0]
+  "discount_amount" numeric(12,2) [not null, default: 0]
+  "tax_rate" numeric(12,2) [not null, default: 0]
+  "tax_amount" numeric(12,2) [not null, default: 0]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "purchase_date" int8 [not null]
+  "total_overage" numeric(12,2) [not null, default: 0]
+  "expedite" bool [not null, default: false]
+  "expedite_fee" numeric(12,2) [not null, default: 0]
+  "number" text [not null]
+  "check_status" purchase_order_check_enum [not null, default: 'NOT_CHEKCED']
+  "vendor_id" uuid [not null]
+  "acknowledge_date" int8
+  "former_status" purchase_order_entity_former_status_enum
+  "status" purchase_order_entity_status_enum [not null]
+  "received_date" int8
+  "total" numeric(12,2) [not null]
+  "actual_delivery_date" int8
+  "description" text
+  "note" text
+  "is_active" bool [not null, default: true]
+  "billing_address_state" text [not null, default: '']
+  "billing_address_city" text [not null]
+  "billing_address_address" text [not null]
+  "billing_address_latitude" numeric(9,6)
+  "billing_address_longitude" numeric(9,6)
+  "billing_address_postal_code" text
+  "billing_address_building_number" text
+  "billing_address_unit" text
+  "shipping_address_state" text [not null, default: '']
+  "shipping_address_city" text [not null]
+  "shipping_address_address" text [not null]
+  "shipping_address_latitude" numeric(9,6)
+  "shipping_address_longitude" numeric(9,6)
+  "shipping_address_postal_code" text
+  "shipping_address_building_number" text
+  "shipping_address_unit" text
+  "estimated_delivery_date" int8
+  "payment_completion_status" purchase_order_payment_completion_status_enum [not null]
+  "paid_amount" numeric(12,2) [not null]
+  "purchase_order_type_id" uuid
+  "required_by" int8
+  "creator_id" uuid [not null]
+  "isimported" bool [not null, default: false]
+  "is_sent_to_vendor_store" bool [not null, default: false]
+  "freight_cost" numeric(12,2) [not null, default: 0]
+  "overhead" numeric(12,2) [not null, default: 0]
+  "is_estimated" bool [not null, default: false]
+  "in_relation_to_ticket_id" uuid
+  "is_approved" bool
+  "approved_by_id" uuid
+
+  Indexes {
+    created_at [type: btree, name: "purchase_orders_created_at_index"]
+    number [type: btree, name: "purchase_orders_number_index"]
+    purchase_date [type: btree, name: "purchase_orders_purchase_date_index"]
+    status [type: btree, name: "purchase_orders_status_index"]
+    store_id [type: btree, name: "purchase_orders_store_id_index"]
+    vendor_id [type: btree, name: "purchase_orders_vendor_id_index"]
+  }
+}
+
+Table "vending_cost" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "cost" numeric(12,2)
+  "vending_id" uuid [not null]
+  "purchase_order_id" uuid
+  "creator_id" uuid [not null]
+}
+
+Table "receives" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "number" text [not null]
+  "purchase_order_id" uuid [not null]
+  "purchase_order_number" text [not null]
+  "received_by_id" uuid
+  "receive_by_name" text [not null]
+  "received_at" int8 [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "receives_created_at_index"]
+    is_active [type: btree, name: "receives_is_active_index"]
+    number [type: btree, name: "receives_number_index"]
+    purchase_order_id [type: btree, name: "receives_purchase_order_id_index"]
+    received_at [type: btree, name: "receives_received_at_index"]
+    received_by_id [type: btree, name: "receives_received_by_id_index"]
+    store_id [type: btree, name: "receives_store_id_index"]
+  }
+}
+
+Table "purchase_quotes" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "target_store_id" uuid [not null]
+  "purchase_order_id" uuid [not null]
+  "sales_order_id" uuid
+  "status" purchase_quote_status [not null]
+}
+
+Table "sales_orders" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "description" text [not null, default: '']
+  "type" sales_order_type_enum [not null, default: 'SALES']
+  "project_name" text
+  "project_location" text [default: '']
+  "transfered" bool [not null, default: false]
+  "special_instruction" text [not null, default: '']
+  "number" text [not null]
+  "status" sales_order_status_enum [not null]
+  "store_id" uuid [not null]
+  "original_sales_order_id" uuid
+  "date" int8 [not null]
+  "lead_time" numeric(12,2)
+  "lead_time_name" text
+  "lead_time_id" uuid
+  "sales_person_id" uuid [not null]
+  "support_sales_person_id" uuid
+  "billing_address_state" text [not null, default: '']
+  "billing_address_city" text [not null]
+  "billing_address_address" text [not null]
+  "billing_address_latitude" numeric(9,6)
+  "billing_address_longitude" numeric(9,6)
+  "billing_address_postal_code" text
+  "billing_address_building_number" text
+  "billing_address_unit" text
+  "shipping_address_state" text [not null, default: '']
+  "shipping_address_city" text [not null]
+  "shipping_address_address" text [not null]
+  "shipping_address_latitude" numeric(9,6)
+  "shipping_address_longitude" numeric(9,6)
+  "shipping_address_postal_code" text
+  "shipping_address_building_number" text
+  "shipping_address_unit" text
+  "client_id" uuid [not null]
+  "rep_id" uuid
+  "requested_by_id" uuid
+  "requested_by_info_name" text
+  "requested_by_info_email" text
+  "requested_by_info_phone" text
+  "will_call" bool [not null, default: false]
+  "will_call_info_name" text
+  "will_call_info_email" text
+  "will_call_info_phone" text
+  "purchase_quote_id" uuid
+  "customer_ponumber" text
+  "customer_poamount" numeric(12,2) [default: 0]
+  "customer_poreceived_by_id" uuid
+  "customer_poreceived_date" int8
+  "creator_id" uuid [not null]
+  "credit_terms_id" uuid
+  "expedite" bool [not null, default: false]
+  "expedite_fee" numeric(12,2) [not null, default: 0]
+  "commission_base_amount_manual_adjustment" numeric(12,2) [not null, default: 0]
+  "regular_commission_percentage" numeric(12,2) [not null, default: 0]
+  "overage_commission_percentage" numeric(12,2) [not null, default: 0]
+  "commission_base_amount" numeric(12,2) [not null, default: 0]
+  "commission_label" text [not null, default: '']
+  "regular_commission" numeric(12,2) [not null, default: 0]
+  "discount_amount" numeric(12,2) [not null, default: 0]
+  "overage_commission" numeric(12,2) [not null, default: 0]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "tax_amount" numeric(12,2) [not null, default: 0]
+  "taxable_subtotal" numeric(12,2) [not null, default: 0]
+  "non_taxable_subtotal" numeric(12,2) [not null, default: 0]
+  "freight_cost" numeric(12,2) [not null, default: 0]
+  "freight_terms" text [not null, default: '']
+  "freight_method" text [not null, default: '']
+  "total_overage" numeric(12,2) [not null, default: 0]
+  "total_commission" numeric(12,2) [not null, default: 0]
+  "order_total" numeric(12,2) [not null, default: 0]
+  "order_total_less_total_commission" numeric(12,2) [not null, default: 0]
+  "part_cost" numeric(12,2) [not null, default: 0]
+  "difference_between_part_cost_and_item_override" numeric(12,2) [not null, default: 0]
+  "sum_of_item_overrides" numeric(12,2) [not null, default: 0]
+  "part_cost_plus_labor_cost" numeric(12,2) [not null, default: 0]
+  "call_twenty_four_hours_before_delivery" bool [default: false]
+  "does_customer_pomatch" bool [default: false]
+  "labor_cost" numeric(12,2) [not null, default: 0]
+  "total_cost" numeric(12,2) [not null, default: 0]
+  "labor_hour" numeric(12,2) [not null, default: 0]
+  "margin_value" numeric(12,2) [not null, default: 0]
+  "margin_percent" numeric(12,2) [not null, default: 0]
+  "margin_without_commission" numeric(12,2) [not null, default: 0]
+  "part_valuation" numeric(12,2) [not null, default: 0]
+  "estimated_ship_date" int8
+  "original_ship_date" int8
+  "actual_ship_date" int8
+  "quote_id" uuid
+  "in_relation_to_ticket_id" uuid
+  "in_relation_to_sales_order_id" uuid
+  "in_relation_to_unit_id" uuid
+  "tax_rate" numeric(12,2) [not null, default: 0]
+  "tariff_rate" numeric(12,2) [not null, default: 0]
+  "discount_rate" numeric(12,2) [not null, default: 0]
+  "check_status" sales_order_check_enum [not null, default: 'NOT_CHEKCED']
+  "to_be_invoiced_date" int8
+  "invoice_date" int8
+  "invoice_due_date" int8
+  "invoice_number" text
+
+  Indexes {
+    check_status [type: btree, name: "sales_orders_check_status_index"]
+    id [type: btree, name: "sales_orders_id_index"]
+  }
+}
+
+Table "shipments" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "number" text [not null]
+  "sales_order_id" uuid [not null]
+  "date" int8 [not null]
+  "actual_ship_date" int8
+  "status" shipment_status_enum [not null]
+  "checklist_progress" text [not null, default: 'PENDING']
+  "note" text
+  "description" text
+  "tracking_number" text
+  "carrier_id" uuid
+  "shipping_service_type_id" uuid
+  "shipping_price" numeric(12,2) [not null, default: 0]
+  "handling_charges" numeric(12,2) [not null, default: 0]
+  "additional_weight" numeric(12,2) [not null, default: 0]
+  "type" shipment_type_enum [not null, default: 'NORMAL']
+  "fob" text [not null, default: '']
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "shipments_created_at_index"]
+  }
+}
+
+Table "sales_order_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "sales_order_id" uuid [not null]
+  "group" int4 [not null]
+  "sort" int4 [not null]
+  "item_store_id" uuid [not null]
+  "item_no" text [not null]
+  "item_name" text [not null]
+  "item_description" text [not null]
+  "quantity" numeric(12,2) [not null]
+  "shipped_quantity" numeric(12,2) [not null, default: 0]
+  "delivered_quantity" numeric(12,2) [not null, default: 0]
+  "taxable" bool [not null]
+  "price" numeric(12,2) [not null]
+  "price_label" text
+  "tax_rate" numeric(12,2) [not null]
+  "tariff_rate" numeric(12,2) [not null]
+  "discount_rate" numeric(12,2) [not null]
+  "tax_amount" numeric(12,2) [not null, default: 0]
+  "discount_amount" numeric(12,2) [not null, default: 0]
+  "overage" numeric(12,2) [not null]
+  "total_amount" numeric(12,2) [not null, default: 0]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "tariffable" bool [not null]
+  "non_commissionable" bool [not null]
+  "is_active" bool [not null, default: true]
+  "shippable" bool [not null, default: true]
+  "do_not_split" bool [not null, default: false]
+  "uom_id" uuid [not null]
+  "coefficient" numeric(12,2)
+  "uom_name" text [not null]
+  "generate_unit" bool [not null, default: true]
+  "note" text
+  "creator_id" uuid
+
+  Indexes {
+    item_store_id [type: btree, name: "sales_order_line_items_item_store_id_index"]
+    sales_order_id [type: btree, name: "sales_order_line_items_sales_order_id_index"]
+  }
+}
+
+Table "sales_order_freight_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "sales_order_id" uuid [not null]
+  "price" numeric(12,2) [not null]
+  "description" text
+  "carrier_id" uuid
+  "shipping_service_type_id" uuid
+  "is_active" bool [not null, default: true]
+}
+
+Table "rma" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "ticket_id" uuid [not null]
+  "number" text [not null]
+  "date" int8 [not null]
+  "expire_date" int8
+  "status" rma_status_enum [not null]
+  "reason" text [not null]
+  "customer_owned" bool [default: false]
+  "authorized_date" int8
+  "authorized_by_id" uuid
+  "authorized_by_name" text
+  "special_instructions" text [not null]
+  "are_parts_being_shipped" bool [default: false]
+  "are_parts_being_returned" bool [default: false]
+  "receive_date" int8
+  "sales_order_id" uuid
+  "is_warranty" bool [default: false]
+  "note" text
+  "creator_id" uuid [not null]
+}
+
+Table "part_requests" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "number" text [not null]
+  "date" int8 [not null]
+  "sales_order_id" uuid
+  "unit_id" uuid
+  "description" text
+  "assigned_to_id" uuid
+  "status" part_request_status_enum [not null]
+  "requested_by_id" uuid [not null]
+  "creator_id" uuid [not null]
+  "is_active" bool [not null, default: true]
+
+  Indexes {
+    unit_id [type: btree, name: "part_requests_unit_id_index"]
+  }
+}
+
+Table "units" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "sales_order_id" uuid [not null]
+  "sales_order_line_item_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "status" unit_status_enum [not null]
+  "name" text [not null]
+  "labor_cost_per_hour" numeric(12,2) [not null, default: 0]
+  "labor_cost" numeric(12,2) [not null, default: 0]
+  "item_labor_cost" numeric(12,2) [not null, default: 0]
+  "lead_time" int4
+  "actual_lead_time" int4
+  "sum_of_jobrecords_tariff" numeric(12,2) [not null, default: 0]
+  "sum_of_jobrecords_overhead" numeric(12,2) [not null, default: 0]
+  "initial_valuation" numeric(12,2) [not null, default: 0]
+  "part_valuation" numeric(12,2) [not null, default: 0]
+  "part_cost" numeric(12,2) [not null, default: 0]
+  "difference_between_part_cost_and_item_override" numeric(12,2) [not null, default: 0]
+  "description" text [not null]
+  "model_number" text [not null]
+  "serial_number" text [not null]
+  "ship_date" int8
+  "estimated_ship_date" int8
+  "number" text [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+  "has_part_request_generated" bool [not null, default: false]
+  "is_issued" bool [not null, default: false]
+  "part_request_id" uuid
+  "ready_to_ship" bool [not null, default: false]
+
+  Indexes {
+    item_store_id [type: btree, name: "units_item_store_id_index"]
+    sales_order_id [type: btree, name: "units_sales_order_id_index"]
+  }
+}
+
+Table "shipment_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "shipment_id" uuid [not null]
+  "item_name" text [not null]
+  "item_no" text [not null]
+  "item_description" text [not null]
+  "item_store_id" uuid [not null]
+  "sales_order_line_item_id" uuid [not null]
+  "unit_id" uuid [not null]
+  "checklist_progress" text [not null]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "shipment_line_items_created_at_index"]
+    shipment_id [type: btree, name: "shipment_line_items_shipment_id_index"]
+  }
+}
+
+Table "shipment_checklists" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "shipment_line_item_id" uuid [not null]
+  "checklist_item_id" uuid [not null]
+}
+
+Table "rma_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "rma_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "item_name" text [not null]
+  "item_no" text [not null]
+  "item_description" text [not null]
+  "whole_unit" bool [not null]
+  "unit_id" uuid
+  "quantity" numeric(12,2) [not null]
+  "creator_id" uuid [not null]
+}
+
+Table "quotes" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "number" text [not null]
+  "status" quote_status_enum [not null]
+  "store_id" uuid [not null]
+  "special_instruction" text [not null, default: '']
+  "original_quote_id" uuid
+  "entry_date" int8 [not null]
+  "expire_date" int8 [not null]
+  "check_status" quote_check_enum [not null, default: 'NOT_CHEKCED']
+  "lead_time" numeric(12,2)
+  "sales_person_id" uuid [not null]
+  "support_sales_person_id" uuid
+  "billing_address_state" text [not null, default: '']
+  "billing_address_city" text [not null]
+  "billing_address_address" text [not null]
+  "billing_address_latitude" numeric(9,6)
+  "billing_address_longitude" numeric(9,6)
+  "billing_address_postal_code" text
+  "billing_address_building_number" text
+  "billing_address_unit" text
+  "shipping_address_state" text [not null, default: '']
+  "shipping_address_city" text [not null]
+  "shipping_address_address" text [not null]
+  "shipping_address_latitude" numeric(9,6)
+  "shipping_address_longitude" numeric(9,6)
+  "shipping_address_postal_code" text
+  "shipping_address_building_number" text
+  "shipping_address_unit" text
+  "client_id" uuid [not null]
+  "rep_id" uuid
+  "requested_by_id" uuid
+  "requested_by_info_name" text
+  "requested_by_info_email" text
+  "requested_by_info_phone" text
+  "will_call" bool [not null, default: false]
+  "will_call_info_name" text
+  "will_call_info_email" text
+  "will_call_info_phone" text
+  "sales_order_id" uuid
+  "creator_id" uuid [not null]
+  "credit_terms_id" uuid
+  "expedite_fee" numeric(12,2) [not null, default: 0]
+  "expedite" bool [not null, default: false]
+  "commission_base_amount_manual_adjustment" numeric(12,2) [not null, default: 0]
+  "regular_commission_percentage" numeric(12,2) [not null, default: 0]
+  "overage_commission_percentage" numeric(12,2) [not null, default: 0]
+  "commission_base_amount" numeric(12,2) [not null, default: 0]
+  "regular_commission" numeric(12,2) [not null, default: 0]
+  "discount_amount" numeric(12,2) [not null, default: 0]
+  "overage_commission" numeric(12,2) [not null, default: 0]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "tax_amount" numeric(12,2) [not null, default: 0]
+  "taxable_subtotal" numeric(12,2) [not null, default: 0]
+  "non_taxable_subtotal" numeric(12,2) [not null, default: 0]
+  "freight_cost" numeric(12,2) [not null, default: 0]
+  "total_overage" numeric(12,2) [not null, default: 0]
+  "total_commission" numeric(12,2) [not null, default: 0]
+  "order_total" numeric(12,2) [not null, default: 0]
+  "customer_ponumber" text
+  "customer_poamount" numeric(12,2) [default: 0]
+  "customer_poreceived_by_id" uuid
+  "customer_poreceived_date" int8
+  "in_relation_to_ticket_id" uuid
+  "in_relation_to_sales_order_id" uuid
+  "in_relation_to_unit_id" uuid
+  "tax_rate" numeric(12,2) [not null, default: 0]
+  "tariff_rate" numeric(12,2) [not null, default: 0]
+  "discount_rate" numeric(12,2) [not null, default: 0]
+  "on_hold_for_release" bool [not null, default: false]
+  "project_name" text
+  "project_location" text
+  "description" text
+  "confirm_info_is_total_order_confirmed" bool [not null, default: false]
+  "confirm_info_is_billing_address_confirmed" bool [not null, default: false]
+  "confirm_info_is_shipping_address_confirmed" bool [not null, default: false]
+  "confirm_info_is_client_confirmed" bool [not null, default: false]
+  "confirm_info_confirm_date" int8
+  "confirm_info_confirmed_by_id" uuid
+  "confirm_info_confirmed_by_name" text
+
+  Indexes {
+    number [type: btree, name: "quotes_number_index"]
+  }
+}
+
+Table "quote_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "quote_id" uuid [not null]
+  "group" int4 [not null]
+  "sort" int4 [not null]
+  "item_store_id" uuid [not null]
+  "item_no" text [not null]
+  "item_name" text [not null]
+  "item_description" text [not null]
+  "quantity" numeric(12,2) [not null]
+  "taxable" bool [not null]
+  "price" numeric(12,2) [not null]
+  "price_label" text
+  "tax_rate" numeric(12,2) [not null]
+  "tariff_rate" numeric(12,2) [not null]
+  "discount_rate" numeric(12,2) [not null]
+  "tax_amount" numeric(12,2) [not null, default: 0]
+  "discount_amount" numeric(12,2) [not null, default: 0]
+  "total_amount" numeric(12,2) [not null, default: 0]
+  "overage" numeric(12,2) [not null]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "tariffable" bool [not null]
+  "non_commissionable" bool [not null]
+  "is_active" bool [not null, default: true]
+  "shippable" bool [not null, default: true]
+  "note" text
+  "is_confirmed" bool [not null, default: false]
+}
+
+Table "quote_freight_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "quote_id" uuid [not null]
+  "price" numeric(12,2) [not null]
+  "description" text
+  "carrier_id" uuid
+  "shipping_service_type_id" uuid
+  "is_confirmed" bool [not null, default: false]
+  "is_active" bool [not null, default: true]
+}
+
+Table "production_tasks" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "assigned_to_id" uuid
+  "assigned_to_name" text
+  "unit_id" uuid [not null]
+  "sales_order_id" uuid [not null]
+  "description" text [not null]
+  "number" text [not null]
+  "title" text [not null]
+  "status" production_task_status_enum [not null]
+  "creator_id" uuid [not null]
+}
+
+Table "timelogs" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "user_id" uuid [not null]
+  "unit_id" uuid [not null]
+  "production_task_id" uuid
+  "start" int8 [not null]
+  "end" int8
+  "pauses" jsonb [not null, default: `[]`]
+  "note" text
+  "description" text
+  "total_time" int4 [not null]
+  "status" timelog_status [not null]
+  "creator_id" uuid [not null]
+}
+
+Table "production_steps" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "production_task_id" uuid [not null]
+  "unit_id" uuid [not null]
+  "done" bool [not null, default: false]
+  "title" text [not null]
+  "subtitle" text [not null]
+  "content" text [not null]
+  "step" text [not null]
+  "args" jsonb [not null]
+  "checkboxes" jsonb [not null]
+  "creator_id" uuid [not null]
+}
+
+Table "unit_bom_records" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "parent_record_id" uuid
+  "unit_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "quantity" numeric(12,2) [not null]
+  "effective_quantity" numeric(12,2) [not null, default: 0]
+  "issued_quantity" numeric(12,2) [not null, default: 0]
+  "item_name" text [not null]
+  "item_no" text [not null]
+  "item_description" text [not null]
+  "purchase_order_numbers" jsonb [not null, default: `[]`]
+  "total_cost" numeric(12,2) [not null, default: 0]
+  "average_cost" numeric(12,2) [not null, default: 0]
+  "item_overhead" numeric(12,2) [not null, default: 0]
+  "total_item_overhead" numeric(12,2) [not null, default: 0]
+  "item_tariff" numeric(12,2) [not null, default: 0]
+  "total_item_tariff" numeric(12,2) [not null, default: 0]
+  "external_key" text
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    external_key [type: btree, name: "unit_bom_records_external_key_index"]
+    item_store_id [type: btree, name: "unit_bom_records_item_store_id_index"]
+    parent_record_id [type: btree, name: "unit_bom_records_parent_record_id_index"]
+    store_id [type: btree, name: "unit_bom_records_store_id_index"]
+    unit_id [type: btree, name: "unit_bom_records_unit_id_index"]
+  }
+}
+
+Table "part_request_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "part_request_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "item_no" text [not null]
+  "item_name" text [not null]
+  "item_description" text [not null]
+  "quantity" numeric(12,2) [not null]
+  "issued_quantity" numeric(12,2) [not null]
+
+  Indexes {
+    item_store_id [type: btree, name: "part_request_line_items_item_store_id_index"]
+    part_request_id [type: btree, name: "part_request_line_items_part_request_id_index"]
+  }
+}
+
+Table "purchase_order_payments" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "amount" numeric(12,2) [not null]
+  "purchase_order_id" uuid [not null]
+  "payment_id" uuid [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+}
+
+Table "purchase_order_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "purchase_order_id" uuid [not null]
+  "vending_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "item_name" text [not null]
+  "item_no" text [not null]
+  "item_description" text [not null]
+  "quantity" numeric(12,2) [not null]
+  "price" numeric(12,2) [not null]
+  "taxable" bool [not null, default: false]
+  "tax_rate" numeric(12,2) [not null, default: 0]
+  "tax_amount" numeric(12,2) [not null, default: 0]
+  "discount_rate" numeric(12,2) [not null, default: 0]
+  "discount_amount" numeric(12,2) [not null, default: 0]
+  "overage" numeric(12,2) [not null, default: 0]
+  "staged_quantity" numeric(12,2) [not null, default: 0]
+  "received_quantity" numeric(12,2) [not null, default: 0]
+  "lead_time" int4
+  "uom_id" uuid [not null]
+  "coefficient" numeric(12,2) [not null]
+  "uom_name" text [not null]
+  "tariff_amount" numeric(12,2) [not null, default: 0]
+  "overhead" numeric(12,2) [not null, default: 0]
+  "total_amount" numeric(12,2) [not null, default: 0]
+  "is_active" bool [not null, default: true]
+  "required_by" int8
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "purchase_order_line_items_created_at_index"]
+    is_active [type: btree, name: "purchase_order_line_items_is_active_index"]
+    item_store_id [type: btree, name: "purchase_order_line_items_item_store_id_index"]
+    price [type: btree, name: "purchase_order_line_items_price_index"]
+    purchase_order_id [type: btree, name: "purchase_order_line_items_purchase_order_id_index"]
+    quantity [type: btree, name: "purchase_order_line_items_quantity_index"]
+    store_id [type: btree, name: "purchase_order_line_items_store_id_index"]
+  }
+}
+
+Table "receive_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "receive_id" uuid [not null]
+  "purchase_order_line_item_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "item_name" text [not null]
+  "quantity" numeric(12,2) [not null]
+  "is_active" bool [not null, default: true]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "receive_line_items_created_at_index"]
+    is_active [type: btree, name: "receive_line_items_is_active_index"]
+    item_store_id [type: btree, name: "receive_line_items_item_store_id_index"]
+    purchase_order_line_item_id [type: btree, name: "receive_line_items_purchase_order_line_item_id_index"]
+    quantity [type: btree, name: "receive_line_items_quantity_index"]
+    receive_id [type: btree, name: "receive_line_items_receive_id_index"]
+  }
+}
+
+Table "purchaseOrder_freight_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "purchase_order_id" uuid [not null]
+  "price" numeric(12,2) [not null]
+  "description" text
+  "carrier_id" uuid
+  "shipping_service_type_id" uuid
+  "is_active" bool [not null, default: true]
+}
+
+Table "purchase_orders_sales_orders" {
+  "purchase_order_entity_id" uuid [not null]
+  "sales_order_entity_id" uuid [not null]
+
+  Indexes {
+    (purchase_order_entity_id, sales_order_entity_id) [pk, type: btree, name: "purchase_orders_sales_orders_pkey"]
+  }
+}
+
+Table "inventory_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "location_id" uuid
+  "serial_number" text
+  "manufacturing_serial_number" text
+  "extra_data" jsonb [default: `{}`]
+  "cost" numeric(12,2) [not null, default: 0]
+  "purchase_order_id" uuid
+  "receive_id" uuid
+  "receive_line_item_id" uuid
+  "cycle_count_id" uuid
+  "quantity" int4 [not null, default: 1]
+  "available_quantity" int4 [not null, default: 1]
+  "issued_quantity" int4 [not null, default: 1]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "inventory_items_created_at_index"]
+    item_store_id [type: btree, name: "inventory_items_item_store_id_index"]
+    location_id [type: btree, name: "inventory_items_location_id_index"]
+    purchase_order_id [type: btree, name: "inventory_items_purchase_order_id_index"]
+    receive_id [type: btree, name: "inventory_items_receive_id_index"]
+    serial_number [type: btree, name: "inventory_items_serial_number_index"]
+    store_id [type: btree, name: "inventory_items_store_id_index"]
+  }
+}
+
+Table "affected_components" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "inventory_item_id" uuid [not null]
+  "job_record_id" uuid
+  "status" text [not null, check: `status = ANY (ARRAY['NEW'::text, 'REPLACED'::text, 'REPAIRED'::text, 'DISCARDED'::text])`]
+  "creator_id" uuid [not null]
+}
+
+Table "goods_issues" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "part_request_id" uuid [not null]
+  "store_id" uuid [not null]
+  "number" text [not null]
+  "date" int8 [not null]
+  "description" text [not null]
+  "sales_order_id" uuid
+  "ticket_id" uuid
+  "issuer_id" uuid [not null]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "goods_issues_created_at_index"]
+  }
+}
+
+Table "goods_issue_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "goods_issue_id" uuid [not null]
+  "inventory_item_id" uuid [not null]
+  "quantity" numeric(12,2) [not null, default: 0]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "goods_issue_line_items_created_at_index"]
+    goods_issue_id [type: btree, name: "goods_issue_line_items_goods_issue_id_index"]
+  }
+}
+
+Table "job_records_issue_line_items" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "jobrecord_id" uuid [not null]
+  "unit_id" uuid [not null]
+  "issue_line_item_id" uuid [not null]
+  "inventory_item_id" uuid [not null]
+  "receive_id" uuid
+  "receive_line_item_id" uuid
+  "purchase_order_id" uuid
+  "quantity" numeric(12,2) [not null]
+}
+
+Table "goods_issue_line_item_returns" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "goods_issue_id" uuid [not null]
+  "goods_issue_line_item_id" uuid [not null]
+  "quantity" numeric(12,2) [not null, default: 0]
+  "creator_id" uuid [not null]
+
+  Indexes {
+    created_at [type: btree, name: "goods_issue_line_item_returns_created_at_index"]
+    goods_issue_id [type: btree, name: "goods_issue_line_item_returns_goods_issue_id_index"]
+  }
+}
+
+Table "fifo_reports" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "date" int8 [not null]
+  "type" text [not null, check: `type = ANY (ARRAY['ADD'::text, 'REDUCE'::text])`]
+  "item_store_id" uuid [not null]
+  "receive_id" uuid
+  "goods_issue_id" uuid
+  "receive_or_issue_or_cycle_count_number" text
+  "purchase_order_id" uuid
+  "purchase_order_number" text
+  "cycle_count_id" uuid
+  "quantity" numeric(10,2) [not null]
+  "value" numeric(10,2) [not null]
+  "note" text
+}
+
+Table "field_service_tasks" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "store_id" uuid [not null]
+  "start" int8
+  "end" int8
+  "due_date" int8
+  "type" field_service_task_type_enum [not null]
+  "requested_by_id" uuid [not null]
+  "requested_by_name" text [not null]
+  "assigned_to_id" uuid
+  "assigned_to_name" text
+  "sales_order_id" uuid
+  "sales_order_number" text
+  "unit_id" uuid
+  "unit_serial_number" text
+  "ticket_id" uuid
+  "ticket_number" text
+  "description" text [not null]
+  "number" text [not null]
+  "title" text [not null]
+  "status" field_service_task_status_enum [not null]
+  "creator_id" uuid [not null]
+}
+
+Table "warranties" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "number" text [not null]
+  "start" int8 [not null]
+  "end" int8 [not null]
+  "name" text [not null]
+  "notes" text
+  "terms" text
+  "status" warranty_status_enum [not null]
+  "unit_id" uuid [not null]
+}
+
+Table "mikro_orm_migrations" {
+  "id" int4 [pk, not null, increment]
+  "name" varchar(255)
+  "executed_at" timestamptz [default: `CURRENT_TIMESTAMP`]
+}
+
+Table "instruction_change" {
+  "id" uuid [pk, not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "set_id" uuid [not null]
+  "store_id" uuid [not null]
+  "item_store_id" uuid [not null]
+  "instruction_id" uuid
+  "type" instruction_change_type [not null]
+  "instruction_info_title" text [not null]
+  "instruction_info_subtitle" text [not null]
+  "instruction_info_content" text [not null]
+  "instruction_info_step" text [not null]
+  "instruction_info_type" production_instruction_type [not null, default: 'INSTRUCTION']
+  "instruction_info_args" jsonb [not null]
+  "instruction_info_checkboxes" jsonb [not null]
+  "creator_id" uuid [not null]
+  "is_active" bool [not null, default: true]
+}
+
+Ref "FK_ADDRESS_CREATOR":"users"."id" < "addresses"."creator_id" [update: cascade]
+
+Ref "FK_ADDRESS_STORE":"stores"."id" < "addresses"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_AFFECTED_COMPONENT_CREATOR":"users"."id" < "affected_components"."creator_id" [update: cascade]
+
+Ref "FK_AFFECTED_COMPONENT_INVENTORY_ITEM":"inventory_items"."id" < "affected_components"."inventory_item_id" [update: cascade]
+
+Ref "FK_AFFECTED_COMPONENT_JOB_RECORD":"unit_bom_records"."id" < "affected_components"."job_record_id" [update: cascade, delete: set null]
+
+Ref "FK_AFFECTED_COMPONENT_STORE":"stores"."id" < "affected_components"."store_id" [update: cascade]
+
+Ref "FK_BOM_RECORD_BOM":"boms"."id" < "bom_records"."bom_id" [update: cascade]
+
+Ref "FK_BOM_RECORD_CREATOR":"users"."id" < "bom_records"."creator_id" [update: cascade]
+
+Ref "FK_BOM_RECORD_ITEM_STORE":"item_stores"."id" < "bom_records"."item_store_id" [update: cascade]
+
+Ref "FK_BOM_RECORD_STORE":"stores"."id" < "bom_records"."store_id" [update: cascade]
+
+Ref "FK_BOM_CREATOR":"users"."id" < "boms"."creator_id" [update: cascade]
+
+Ref "FK_BOM_ITEM_STORE":"item_stores"."id" < "boms"."item_store_id" [update: cascade]
+
+Ref "FK_BOM_STORE":"stores"."id" < "boms"."store_id" [update: cascade]
+
+Ref "FK_CARRIER_CREATOR":"users"."id" < "carriers"."creator_id" [update: cascade]
+
+Ref "FK_CARRIER_STORE":"stores"."id" < "carriers"."store_id" [update: cascade]
+
+Ref "FK_CATEGORY_CREATOR":"users"."id" < "categories"."creator_id" [update: cascade]
+
+Ref "FK_CATEGORY_PARENT":"categories"."id" < "categories"."parent_category_id" [update: cascade]
+
+Ref "FK_CATEGORY_REFERENCE":"categories"."id" < "categories"."reference_category_id" [update: cascade, delete: set null]
+
+Ref "FK_CATEGORY_STORE":"stores"."id" < "categories"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_CHECKLIST_ITEM_CHECKLIST":"checklists"."id" < "checklist_items"."checklist_id" [update: cascade]
+
+Ref "FK_CHECKLIST_ITEM_CREATOR":"users"."id" < "checklist_items"."creator_id" [update: cascade]
+
+Ref "FK_CHECKLIST_STORE":"stores"."id" < "checklist_items"."store_id" [update: cascade]
+
+Ref "FK_CHECKLIST_CREATOR":"users"."id" < "checklists"."creator_id" [update: cascade]
+
+Ref "FK_CHECKLIST_STORE":"stores"."id" < "checklists"."store_id" [update: cascade]
+
+Ref "FK_CLIENT_SKU_CLIENT":"clients"."id" < "client_skus"."client_id" [update: cascade]
+
+Ref "FK_CLIENT_SKU_ITEM_STORE":"item_stores"."id" < "client_skus"."item_store_id" [update: cascade]
+
+Ref "FK_CLIENT_CREATOR":"users"."id" < "clients"."creator_id" [update: cascade]
+
+Ref "FK_CLIENT_REFERENCE_STORE":"stores"."id" < "clients"."reference_store_id" [update: cascade, delete: set null]
+
+Ref "FK_CLIENT_STORE":"stores"."id" < "clients"."store_id" [update: cascade]
+
+Ref "clients_credit_terms_id_foreign":"credit_terms"."id" < "clients"."credit_terms_id" [update: cascade, delete: set null]
+
+Ref "FK_CONTACT_CREATOR":"users"."id" < "contacts"."creator_id" [update: cascade]
+
+Ref "FK_CONTACT_STORE":"stores"."id" < "contacts"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_COST_ESTIMATE_SPEC_COST_ESTIMATE":"cost_estimates"."id" < "cost_estimate_specs"."cost_estimate_id" [update: cascade]
+
+Ref "FK_COST_ESTIMATE_CREATOR":"users"."id" < "cost_estimates"."creator_id" [update: cascade]
+
+Ref "FK_COST_ESTIMATE_STORE":"stores"."id" < "cost_estimates"."store_id" [update: cascade]
+
+Ref "FK_CREDIT_TERM_CREATOR":"users"."id" < "credit_terms"."creator_id" [update: cascade]
+
+Ref "FK_CREDIT_TERM_STORE":"stores"."id" < "credit_terms"."store_id" [update: cascade]
+
+Ref "FK_CROSS_CHECK_CATEGORY":"categories"."id" < "cross_check_applies_to"."category_id" [update: cascade]
+
+Ref "FK_CROSS_CHECK_SPEC_CROSS_CHECK":"cross_checks"."id" < "cross_check_applies_to"."cross_check_id" [update: cascade]
+
+Ref "FK_CROSS_CHECK_SPEC_SPEC":"specifications"."id" < "cross_check_applies_to"."specification_id" [update: cascade]
+
+Ref "FK_CROSS_CHECK_CREATOR":"users"."id" < "cross_checks"."creator_id" [update: cascade]
+
+Ref "FK_CROSS_CHECK_FILE":"files"."id" < "cross_checks"."file_id" [update: cascade]
+
+Ref "FK_CROSS_CHECK_STORE":"stores"."id" < "cross_checks"."store_id" [update: cascade]
+
+Ref "FK_CYCLE_COUNT_CREATOR":"users"."id" < "cycle_counts"."creator_id" [update: cascade]
+
+Ref "FK_CYCLE_COUNT_ITEM_STORE":"item_stores"."id" < "cycle_counts"."item_store_id" [update: cascade]
+
+Ref "FK_CYCLE_COUNT_STORE":"stores"."id" < "cycle_counts"."store_id" [update: cascade]
+
+Ref "FK_DEPARTMENT_CREATOR":"users"."id" < "departments"."creator_id" [update: cascade]
+
+Ref "FK_DSSLIDER_STORE":"stores"."id" < "departments"."store_id" [update: cascade]
+
+Ref "FK_DS_BLOG_POST_STORE":"stores"."id" < "ds_blog_posts"."store_id" [update: cascade]
+
+Ref "ds_blog_posts_categories_category_entity_id_foreign":"categories"."id" < "ds_blog_posts_categories"."category_entity_id" [update: cascade, delete: cascade]
+
+Ref "ds_blog_posts_categories_dsblog_post_entity_id_foreign":"ds_blog_posts"."id" < "ds_blog_posts_categories"."dsblog_post_entity_id" [update: cascade, delete: cascade]
+
+Ref "FK_DS_FOOTER_STORE":"stores"."id" < "ds_footers"."store_id" [update: cascade]
+
+Ref "FK_DS_NAV_BAR_STORE":"stores"."id" < "ds_nav_bar"."store_id" [update: cascade]
+
+Ref "FK_DSSLIDER_STORE":"stores"."id" < "ds_sliders"."store_id" [update: cascade]
+
+Ref "FK_DS_TEMPLATE_CONFIG_STORE":"stores"."id" < "ds_template_configs"."store_id" [update: cascade]
+
+Ref "FK_DS_TEMPLATE_CONFIG_TEMPLATE":"ds_templates"."id" < "ds_template_configs"."template_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_TASK_ASSIGNED_TO":"users"."id" < "field_service_tasks"."assigned_to_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TASK_CREATOR":"users"."id" < "field_service_tasks"."creator_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_TASK_REQUESTED_BY":"users"."id" < "field_service_tasks"."requested_by_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_TASK_SALES_ORDER":"sales_orders"."id" < "field_service_tasks"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TASK_STORE":"stores"."id" < "field_service_tasks"."store_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_TASK_TICKET":"field_service_tickets"."id" < "field_service_tasks"."ticket_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TASK_UNIT":"units"."id" < "field_service_tasks"."unit_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TICKET_ASSIGNED_TO":"users"."id" < "field_service_tickets"."assigned_to_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TICKET_CREATED_BY":"users"."id" < "field_service_tickets"."created_by_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_TICKET_PURCHASE_ORDER":"purchase_orders"."id" < "field_service_tickets"."purchase_order_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TICKET_SALES_ORDER":"sales_orders"."id" < "field_service_tickets"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TICKET_STORE":"stores"."id" < "field_service_tickets"."store_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_TICKET_UNIT":"units"."id" < "field_service_tickets"."unit_id" [update: cascade, delete: set null]
+
+Ref "FK_FIELD_SERVICE_TICKET_VENDOR_TECH":"vendors"."id" < "field_service_tickets"."vendor_tech_id" [update: cascade, delete: set null]
+
+Ref "FK_FIFO_REPORT_CYCLE_COUNT":"cycle_counts"."id" < "fifo_reports"."cycle_count_id" [update: cascade, delete: set null]
+
+Ref "FK_FIFO_REPORT_GOODS_ISSUE":"goods_issues"."id" < "fifo_reports"."goods_issue_id" [update: cascade, delete: set null]
+
+Ref "FK_FIFO_REPORT_ITEM_STORE":"item_stores"."id" < "fifo_reports"."item_store_id" [update: cascade]
+
+Ref "FK_FIFO_REPORT_PURCHASE_ORDER":"purchase_orders"."id" < "fifo_reports"."purchase_order_id" [update: cascade, delete: set null]
+
+Ref "FK_FIFO_REPORT_RECEIVE":"receives"."id" < "fifo_reports"."receive_id" [update: cascade, delete: set null]
+
+Ref "FK_FILE_CREATOR":"users"."id" < "files"."creator_id" [update: cascade]
+
+Ref "FK_FILE_STORE":"stores"."id" < "files"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_CREATOR":"users"."id" < "goods_issue_line_item_returns"."creator_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_GOODS_ISSUE":"goods_issues"."id" < "goods_issue_line_item_returns"."goods_issue_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_GOODS_ISSUE_LINE_ITEM":"goods_issue_line_items"."id" < "goods_issue_line_item_returns"."goods_issue_line_item_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_STORE":"stores"."id" < "goods_issue_line_item_returns"."store_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_CREATOR":"users"."id" < "goods_issue_line_items"."creator_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_GOODS_ISSUE":"goods_issues"."id" < "goods_issue_line_items"."goods_issue_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_INVENTORY_ITEM":"inventory_items"."id" < "goods_issue_line_items"."inventory_item_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_LINE_ITEM_STORE":"stores"."id" < "goods_issue_line_items"."store_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_CREATOR":"users"."id" < "goods_issues"."creator_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_ISSUER":"users"."id" < "goods_issues"."issuer_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_PART_REQUEST":"part_requests"."id" < "goods_issues"."part_request_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_SALES_ORDER":"sales_orders"."id" < "goods_issues"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_GOODS_ISSUE_STORE":"stores"."id" < "goods_issues"."store_id" [update: cascade]
+
+Ref "FK_GOODS_ISSUE_TICKET":"field_service_tickets"."id" < "goods_issues"."ticket_id" [update: cascade, delete: set null]
+
+Ref "FK_GOOGLE_DRIVE_FILE_STORE":"stores"."id" < "google_drive_files"."store_id" [update: cascade]
+
+Ref "FK_GUILD_CREATOR":"users"."id" < "guilds"."creator_id" [update: cascade]
+
+Ref "guilds_categories_category_entity_id_foreign":"categories"."id" < "guilds_categories"."category_entity_id" [update: cascade, delete: cascade]
+
+Ref "guilds_categories_guild_entity_id_foreign":"guilds"."id" < "guilds_categories"."guild_entity_id" [update: cascade, delete: cascade]
+
+Ref "import_report_full_report_row_import_report_id_foreign":"import_reports"."id" < "import_report_full_report_row"."import_report_id" [update: cascade]
+
+Ref "FK_IMPORT_REPORT_STORE":"stores"."id" < "import_reports"."store_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_CHANGE_CREATOR":"users"."id" < "instruction_change"."creator_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_CHANGE_INSTRUCTION":"instructions"."id" < "instruction_change"."instruction_id" [update: cascade, delete: set null]
+
+Ref "FK_INSTRUCTION_CHANGE_INSTRUCTION_SET":"production_instruction_sets"."id" < "instruction_change"."set_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_CHANGE_ITEM":"item_stores"."id" < "instruction_change"."item_store_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_CHANGE_STORE":"stores"."id" < "instruction_change"."store_id" [update: cascade]
+
+Ref "FK_FIELD_SERVICE_INSTRUCTION_SET":"production_instruction_sets"."id" < "instructions"."set_id" [update: cascade]
+
+Ref "FK_INVENTORY_ITEM_CREATOR":"users"."id" < "inventory_items"."creator_id" [update: cascade]
+
+Ref "FK_INVENTORY_ITEM_CYCLE_COUNT":"cycle_counts"."id" < "inventory_items"."cycle_count_id" [update: cascade, delete: set null]
+
+Ref "FK_INVENTORY_ITEM_ITEM_STORE":"item_stores"."id" < "inventory_items"."item_store_id" [update: cascade]
+
+Ref "FK_INVENTORY_ITEM_LOCATION":"locations"."id" < "inventory_items"."location_id" [update: cascade, delete: set null]
+
+Ref "FK_INVENTORY_ITEM_PURCHASE_ORDER":"purchase_orders"."id" < "inventory_items"."purchase_order_id" [update: cascade, delete: set null]
+
+Ref "FK_INVENTORY_ITEM_RECEIVE":"receives"."id" < "inventory_items"."receive_id" [update: cascade, delete: set null]
+
+Ref "FK_INVENTORY_ITEM_RECEIVE_LINE_ITEM":"receive_line_items"."id" < "inventory_items"."receive_line_item_id" [update: cascade, delete: set null]
+
+Ref "FK_INVENTORY_ITEM_STORE":"stores"."id" < "inventory_items"."store_id" [update: cascade]
+
+Ref "FK_ITEM_SPECIFICATION_ITEM":"items"."id" < "item_specifications"."item_id" [update: cascade]
+
+Ref "FK_ITEM_SPECIFICATION_SPECIFICATION":"specifications"."id" < "item_specifications"."specification_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_SPECIFICATION_ITEM_STORE":"item_stores"."id" < "item_store_specifications"."item_store_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_SPECIFICATION_SPECIFICATION":"specifications"."id" < "item_store_specifications"."specification_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_VARIANT_ITEM_STORE":"item_stores"."id" < "item_store_variants"."item_store_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_VARIANT_VARIANT":"variants"."id" < "item_store_variants"."variant_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_CATEGORY":"categories"."id" < "item_stores"."category_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_STORE_CREATOR":"users"."id" < "item_stores"."creator_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_ITEM":"items"."id" < "item_stores"."item_id" [update: cascade]
+
+Ref "FK_ITEM_STORE_ITEM_TYPE":"item_types"."id" < "item_stores"."item_type_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_STORE_LAST_LOCATION":"locations"."id" < "item_stores"."default_location_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_STORE_MAIN_UOM":"uoms"."id" < "item_stores"."main_uom_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_STORE_PREFERRED_VENDOR":"vendors"."id" < "item_stores"."preferred_vendor_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_STORE_SPEC_RULE":"spec_rules"."id" < "item_stores"."spec_rule_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_STORE_STORE":"stores"."id" < "item_stores"."store_id" [update: cascade]
+
+Ref "FK_ITEM_TYPE_CREATOR":"users"."id" < "item_types"."creator_id" [update: cascade]
+
+Ref "FK_ITEM_TYPE_STORE":"stores"."id" < "item_types"."store_id" [update: cascade]
+
+Ref "FK_ITEM_CATEGORY":"categories"."id" < "items"."category_id" [update: cascade, delete: set null]
+
+Ref "FK_ITEM_CREATOR":"users"."id" < "items"."creator_id" [update: cascade]
+
+Ref "FK_ITEM_STORE":"stores"."id" < "items"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_INVENTORY_ITEM":"inventory_items"."id" < "job_records_issue_line_items"."inventory_item_id" [update: cascade]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_ISSUE_LINE_ITEM":"goods_issue_line_items"."id" < "job_records_issue_line_items"."issue_line_item_id" [update: cascade]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_JOB_RECORD":"unit_bom_records"."id" < "job_records_issue_line_items"."jobrecord_id" [update: cascade]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_PURCHASE_ORDER":"purchase_orders"."id" < "job_records_issue_line_items"."purchase_order_id" [update: cascade, delete: set null]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_RECEIVE":"receives"."id" < "job_records_issue_line_items"."receive_id" [update: cascade, delete: set null]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_RECEIVE_LINE_ITEM":"receive_line_items"."id" < "job_records_issue_line_items"."receive_line_item_id" [update: cascade, delete: set null]
+
+Ref "FK_JOB_RECORD_ISSUE_LINE_ITEM_UNIT":"units"."id" < "job_records_issue_line_items"."unit_id" [update: cascade]
+
+Ref "FK_LEAD_TIME_CREATOR":"users"."id" < "leadtimes"."creator_id" [update: cascade]
+
+Ref "FK_LEAD_TIME_STORE":"stores"."id" < "leadtimes"."store_id" [update: cascade]
+
+Ref "FK_LOCATION_CHANGE_LOG_AFTER_LOCATION":"locations"."id" < "location_change_logs"."after_location_id" [update: cascade]
+
+Ref "FK_LOCATION_CHANGE_LOG_BEFORE_LOCATION":"locations"."id" < "location_change_logs"."before_location_id" [update: cascade]
+
+Ref "FK_LOCATION_CHANGE_LOG_ITEM_STORE":"item_stores"."id" < "location_change_logs"."item_store_id" [update: cascade]
+
+Ref "FK_LOCATION_CHANGE_LOG_STORE":"stores"."id" < "location_change_logs"."store_id" [update: cascade]
+
+Ref "FK_LOCATION_CHANGE_LOG_USER":"users"."id" < "location_change_logs"."user_id" [update: cascade]
+
+Ref "FK_LOCATION_CREATOR":"users"."id" < "locations"."creator_id" [update: cascade]
+
+Ref "FK_LOCATION_STORE":"stores"."id" < "locations"."store_id" [update: cascade]
+
+Ref "FK_NEWS_LETTER_FILE_FILE":"files"."id" < "news_letter_files"."file_id" [update: cascade]
+
+Ref "FK_NEWS_LETTER_FILE_NEWS_LETTER":"news_letters"."id" < "news_letter_files"."newsletter_id" [update: cascade]
+
+Ref "FK_NEWS_LETTER_FILE_STORE":"stores"."id" < "news_letter_files"."store_id" [update: cascade]
+
+Ref "FK_NEWS_LETTER_VIEW_REPORT_CLIENT":"clients"."id" < "news_letter_view_reports"."rep_id" [update: cascade, delete: set null]
+
+Ref "FK_NEWS_LETTER_VIEW_REPORT_CONTACT":"contacts"."id" < "news_letter_view_reports"."contact_id" [update: cascade, delete: set null]
+
+Ref "FK_NEWS_LETTER_VIEW_REPORT_NEWS_LETTER":"news_letters"."id" < "news_letter_view_reports"."newsletter_id" [update: cascade]
+
+Ref "FK_VIEW_REPORT_STORE":"stores"."id" < "news_letter_view_reports"."store_id" [update: cascade]
+
+Ref "FK_NEWS_LETTER_CREATOR":"users"."id" < "news_letters"."creator_id" [update: cascade]
+
+Ref "FK_NEWS_LETTER_STORE":"stores"."id" < "news_letters"."store_id" [update: cascade]
+
+Ref "FK_NOTE_CREATOR":"users"."id" < "notes"."creator_id" [update: cascade]
+
+Ref "FK_NOTE_STORE":"stores"."id" < "notes"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_NOTIFICATION_USER_NOTIFICATION":"notificaitons"."id" < "notificaiton_user"."notification_id" [update: cascade]
+
+Ref "FK_NOTIFICATION_USER_USER":"users"."id" < "notificaiton_user"."user_id" [update: cascade]
+
+Ref "FK_NOTIFICATION_TARGET_STORE":"stores"."id" < "notificaitons"."target_store_id" [update: cascade, delete: set null]
+
+Ref "FK_OPTION_SELECTOR_CATEGORY":"categories"."id" < "option_selector_destinations"."category_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_SPEC_OPTION_SELECTOR":"option_selectors"."id" < "option_selector_destinations"."option_selector_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_SPEC_SPEC":"specifications"."id" < "option_selector_destinations"."specification_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_CATEGORY":"categories"."id" < "option_selector_sources"."category_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_SPEC_OPTION_SELECTOR":"option_selectors"."id" < "option_selector_sources"."option_selector_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_SPEC_SPEC":"specifications"."id" < "option_selector_sources"."specification_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_CREATOR":"users"."id" < "option_selectors"."creator_id" [update: cascade]
+
+Ref "FK_OPTION_SELECTOR_STORE":"stores"."id" < "option_selectors"."store_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_LINE_ITEM_ITEM_STORE":"item_stores"."id" < "part_request_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_LINE_ITEM_PART_REQUEST":"part_requests"."id" < "part_request_line_items"."part_request_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_STORE":"stores"."id" < "part_request_line_items"."store_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_ASSIGNED_TO":"users"."id" < "part_requests"."assigned_to_id" [update: cascade, delete: set null]
+
+Ref "FK_PART_REQUEST_CREATOR":"users"."id" < "part_requests"."creator_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_REQUESTED_BY":"users"."id" < "part_requests"."requested_by_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_SALES_ORDER":"sales_orders"."id" < "part_requests"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_PART_REQUEST_STORE":"stores"."id" < "part_requests"."store_id" [update: cascade]
+
+Ref "FK_PART_REQUEST_UNIT":"units"."id" < "part_requests"."unit_id" [update: cascade, delete: set null]
+
+Ref "FK_PAYMENT_CREATOR":"users"."id" < "payments"."creator_id" [update: cascade]
+
+Ref "FK_PAYMENT_STORE":"stores"."id" < "payments"."store_id" [update: cascade]
+
+Ref "FK_PRODUCTION_DEFAULT_TASK_CATEGORY":"categories"."id" < "production_default_task_set_specs"."category_id" [update: cascade]
+
+Ref "FK_PRODUCTION_DEFAULT_TASK_SPEC_DEFAULT_TASK":"production_default_tasks"."id" < "production_default_task_set_specs"."production_default_task_id" [update: cascade]
+
+Ref "FK_DEFAULT_TASK_STORE":"stores"."id" < "production_default_tasks"."store_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_SET_CATEGORY":"categories"."id" < "production_instruction_set_specs"."category_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_SET_SPEC_INSTRUCTION_SET":"production_instruction_sets"."id" < "production_instruction_set_specs"."instruction_set_id" [update: cascade]
+
+Ref "FK_INSTRUCTION_SET_DEPARTMENT":"departments"."id" < "production_instruction_sets"."department_id" [update: cascade, delete: set null]
+
+Ref "FK_STEP_CREATOR":"users"."id" < "production_steps"."creator_id" [update: cascade]
+
+Ref "FK_STEP_PRODUCTION_TASK":"production_tasks"."id" < "production_steps"."production_task_id" [update: cascade]
+
+Ref "FK_STEP_STORE":"stores"."id" < "production_steps"."store_id" [update: cascade]
+
+Ref "FK_STEP_UNIT":"units"."id" < "production_steps"."unit_id" [update: cascade]
+
+Ref "FK_PRODUCTION_TASK_ASSIGNED_TO":"users"."id" < "production_tasks"."assigned_to_id" [update: cascade, delete: set null]
+
+Ref "FK_PRODUCTION_TASK_CREATOR":"users"."id" < "production_tasks"."creator_id" [update: cascade]
+
+Ref "FK_PRODUCTION_TASK_SALES_ORDER":"sales_orders"."id" < "production_tasks"."sales_order_id" [update: cascade]
+
+Ref "FK_PRODUCTION_TASK_STORE":"stores"."id" < "production_tasks"."store_id" [update: cascade]
+
+Ref "FK_PRODUCTION_TASK_UNIT":"units"."id" < "production_tasks"."unit_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_FREIGHT_LINE_ITEM_CARRIER":"carriers"."id" < "purchaseOrder_freight_line_items"."carrier_id" [update: cascade, delete: set null]
+
+Ref "FK_PURCHASE_ORDER_FREIGHT_LINE_ITEM_PURCHASE_ORDER":"purchase_orders"."id" < "purchaseOrder_freight_line_items"."purchase_order_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_FREIGHT_LINE_ITEM_SHIPPING_SERVICE_TYPE":"shipping_service_types"."id" < "purchaseOrder_freight_line_items"."shipping_service_type_id" [update: cascade, delete: set null]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_STORE":"stores"."id" < "purchaseOrder_freight_line_items"."store_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_CREATOR":"users"."id" < "purchase_order_line_items"."creator_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_ITEM_STORE":"item_stores"."id" < "purchase_order_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_PURCHASE_ORDER":"purchase_orders"."id" < "purchase_order_line_items"."purchase_order_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_STORE":"stores"."id" < "purchase_order_line_items"."store_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_UOM":"uoms"."id" < "purchase_order_line_items"."uom_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_LINE_ITEM_VENDING":"vending"."id" < "purchase_order_line_items"."vending_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_PAYMENT_CREATOR":"users"."id" < "purchase_order_payments"."creator_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_PAYMENT_PAYMENT":"payments"."id" < "purchase_order_payments"."payment_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_PAYMENT_PURCHASE_ORDER":"purchase_orders"."id" < "purchase_order_payments"."purchase_order_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_PAYMENT_STORE":"stores"."id" < "purchase_order_payments"."store_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_TYPE_CREATOR":"users"."id" < "purchase_order_types"."creator_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_TYPE_STORE":"stores"."id" < "purchase_order_types"."store_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_CREATOR":"users"."id" < "purchase_orders"."creator_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_IN_RELATION_TO_TICKET":"field_service_tickets"."id" < "purchase_orders"."in_relation_to_ticket_id" [update: cascade, delete: set null]
+
+Ref "FK_PURCHASE_ORDER_PURCHASE_ORDER_TYPE":"purchase_order_types"."id" < "purchase_orders"."purchase_order_type_id" [update: cascade, delete: set null]
+
+Ref "FK_PURCHASE_ORDER_STORE":"stores"."id" < "purchase_orders"."store_id" [update: cascade]
+
+Ref "FK_PURCHASE_ORDER_VENDOR":"vendors"."id" < "purchase_orders"."vendor_id" [update: cascade]
+
+Ref "purchase_orders_approved_by_id_foreign":"users"."id" < "purchase_orders"."approved_by_id" [update: cascade, delete: set null]
+
+Ref "purchase_orders_sales_orders_purchase_order_entity_id_foreign":"purchase_orders"."id" < "purchase_orders_sales_orders"."purchase_order_entity_id" [update: cascade, delete: cascade]
+
+Ref "purchase_orders_sales_orders_sales_order_entity_id_foreign":"sales_orders"."id" < "purchase_orders_sales_orders"."sales_order_entity_id" [update: cascade, delete: cascade]
+
+Ref "FK_PURCHASE_QUOTE_PURCAHSE_ORDER":"purchase_orders"."id" < "purchase_quotes"."purchase_order_id" [update: cascade]
+
+Ref "FK_PURCHASE_QUOTE_SALES_ORDER":"sales_orders"."id" < "purchase_quotes"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_PURCHASE_QUOTE_STORE":"stores"."id" < "purchase_quotes"."store_id" [update: cascade]
+
+Ref "FK_PURCHASE_QUOTE_TARGET_STORE":"stores"."id" < "purchase_quotes"."target_store_id" [update: cascade]
+
+Ref "FK_QUOTE_FREIGHT_LINE_ITEM_CARRIER":"carriers"."id" < "quote_freight_line_items"."carrier_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_FREIGHT_LINE_ITEM_QUOTE":"quotes"."id" < "quote_freight_line_items"."quote_id" [update: cascade]
+
+Ref "FK_QUOTE_FREIGHT_LINE_ITEM_SHIPPING_SERVICE_TYPE":"shipping_service_types"."id" < "quote_freight_line_items"."shipping_service_type_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_LINE_ITEM_STORE":"stores"."id" < "quote_freight_line_items"."store_id" [update: cascade]
+
+Ref "FK_QUOTE_LINE_ITEM_ITEM_STORE":"item_stores"."id" < "quote_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_QUOTE_LINE_ITEM_QUOTE":"quotes"."id" < "quote_line_items"."quote_id" [update: cascade]
+
+Ref "FK_QUOTE_LINE_ITEM_STORE":"stores"."id" < "quote_line_items"."store_id" [update: cascade]
+
+Ref "FK_QUOTE_CLIENT":"clients"."id" < "quotes"."client_id" [update: cascade]
+
+Ref "FK_QUOTE_CREATOR":"users"."id" < "quotes"."creator_id" [update: cascade]
+
+Ref "FK_QUOTE_CREDIT_TERM":"credit_terms"."id" < "quotes"."credit_terms_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_IN_RELATION_TO_SALES_ORDER":"sales_orders"."id" < "quotes"."in_relation_to_sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_IN_RELATION_TO_TICKET":"field_service_tickets"."id" < "quotes"."in_relation_to_ticket_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_IN_RELATION_TO_UNIT":"units"."id" < "quotes"."in_relation_to_unit_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_ORIGINAL_QUOTE":"quotes"."id" < "quotes"."original_quote_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_REP":"clients"."id" < "quotes"."rep_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_REQUESTED_BY":"contacts"."id" < "quotes"."requested_by_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_SALES_ORDER":"sales_orders"."id" < "quotes"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_QUOTE_SALES_PERSON":"users"."id" < "quotes"."sales_person_id" [update: cascade]
+
+Ref "FK_QUOTE_STORE":"stores"."id" < "quotes"."store_id" [update: cascade]
+
+Ref "FK_QUOTE_SUPPORT_SALES_PERSON":"users"."id" < "quotes"."support_sales_person_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_CUSTOMER_PO_RECEIVED_BY":"users"."id" < "quotes"."customer_poreceived_by_id" [update: cascade, delete: set null]
+
+Ref "FK_RECEIVE_LINE_ITEM_CREATOR":"users"."id" < "receive_line_items"."creator_id" [update: cascade]
+
+Ref "FK_RECEIVE_LINE_ITEM_ITEM_STORE":"item_stores"."id" < "receive_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_RECEIVE_LINE_ITEM_PURCHASE_ORDER_LINE_ITEM":"purchase_order_line_items"."id" < "receive_line_items"."purchase_order_line_item_id" [update: cascade]
+
+Ref "FK_RECEIVE_LINE_ITEM_RECEIVE":"receives"."id" < "receive_line_items"."receive_id" [update: cascade]
+
+Ref "FK_RECEIVE_LINE_ITEM_STORE":"stores"."id" < "receive_line_items"."store_id" [update: cascade]
+
+Ref "FK_RECEIVE_CREATOR":"users"."id" < "receives"."creator_id" [update: cascade]
+
+Ref "FK_RECEIVE_PURCHASE_ORDER":"purchase_orders"."id" < "receives"."purchase_order_id" [update: cascade]
+
+Ref "FK_RECEIVE_RECEIVED_BY":"users"."id" < "receives"."received_by_id" [update: cascade, delete: set null]
+
+Ref "FK_RECEIVE_STORE":"stores"."id" < "receives"."store_id" [update: cascade]
+
+Ref "FK_RELATIONSHIP_REQUEST_STORE":"stores"."id" < "relationship_requests"."store_id" [update: cascade]
+
+Ref "FK_RELATIONSHIP_REQUEST_TARGET_STORE":"stores"."id" < "relationship_requests"."target_store_id" [update: cascade]
+
+Ref "FK_REQUIRED_ITEM_ITEM_STORE":"item_stores"."id" < "required_items"."item_store_id" [update: cascade]
+
+Ref "FK_REQUIRED_ITEM_PREFERRED_VENDOR":"vendors"."id" < "required_items"."preferred_vendor_id" [update: cascade, delete: set null]
+
+Ref "FK_RMA_AUTHORIZED_BY":"users"."id" < "rma"."authorized_by_id" [update: cascade, delete: set null]
+
+Ref "FK_RMA_CREATOR":"users"."id" < "rma"."creator_id" [update: cascade]
+
+Ref "FK_RMA_SALES_ORDER":"sales_orders"."id" < "rma"."sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_RMA_STORE":"stores"."id" < "rma"."store_id" [update: cascade]
+
+Ref "FK_RMA_TICKET":"field_service_tickets"."id" < "rma"."ticket_id" [update: cascade]
+
+Ref "FK_RMA_LINE_ITEM_CREATOR":"users"."id" < "rma_line_items"."creator_id" [update: cascade]
+
+Ref "FK_RMA_LINE_ITEM_ITEM_STORE":"item_stores"."id" < "rma_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_RMA_LINE_ITEM_RMA":"rma"."id" < "rma_line_items"."rma_id" [update: cascade]
+
+Ref "FK_RMA_LINE_ITEM_STORE":"stores"."id" < "rma_line_items"."store_id" [update: cascade]
+
+Ref "FK_RMA_LINE_ITEM_UNIT":"units"."id" < "rma_line_items"."unit_id" [update: cascade, delete: set null]
+
+Ref "FK_ROLE_CREATOR":"users"."id" < "roles"."creator_id" [update: cascade]
+
+Ref "FK_ROLE_STORE":"stores"."id" < "roles"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_FREIGHT_LINE_ITEM_CARRIER":"carriers"."id" < "sales_order_freight_line_items"."carrier_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_FREIGHT_LINE_ITEM_SALES_ORDER":"sales_orders"."id" < "sales_order_freight_line_items"."sales_order_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_FREIGHT_LINE_ITEM_SHIPPING_SERVICE_TYPE":"shipping_service_types"."id" < "sales_order_freight_line_items"."shipping_service_type_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_LINE_ITEM_STORE":"stores"."id" < "sales_order_freight_line_items"."store_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_LINE_ITEM_CREATOR":"users"."id" < "sales_order_line_items"."creator_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_LINE_ITEM_ITEM":"item_stores"."id" < "sales_order_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_LINE_ITEM_SALES_ORDER":"sales_orders"."id" < "sales_order_line_items"."sales_order_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_LINE_ITEM_STORE":"stores"."id" < "sales_order_line_items"."store_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_LINE_ITEM_UOM":"uoms"."id" < "sales_order_line_items"."uom_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_CLIENT":"clients"."id" < "sales_orders"."client_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_CREATOR":"users"."id" < "sales_orders"."creator_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_CREDIT_TERM":"credit_terms"."id" < "sales_orders"."credit_terms_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_CUSTOMER_PO_RECEIVED_BY":"users"."id" < "sales_orders"."customer_poreceived_by_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_IN_RELATION_TO_SALES_ORDER":"sales_orders"."id" < "sales_orders"."in_relation_to_sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_IN_RELATION_TO_TICKET":"field_service_tickets"."id" < "sales_orders"."in_relation_to_ticket_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_IN_RELATION_TO_UNIT":"units"."id" < "sales_orders"."in_relation_to_unit_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_ORIGINAL_SALES_ORDER":"sales_orders"."id" < "sales_orders"."original_sales_order_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_PURCHASE_QUOTE":"purchase_quotes"."id" < "sales_orders"."purchase_quote_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_QUOTE":"quotes"."id" < "sales_orders"."quote_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_REP":"clients"."id" < "sales_orders"."rep_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_REQUESTED_BY":"contacts"."id" < "sales_orders"."requested_by_id" [update: cascade, delete: set null]
+
+Ref "FK_SALES_ORDER_SALES_PERSON":"users"."id" < "sales_orders"."sales_person_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_STORE":"stores"."id" < "sales_orders"."store_id" [update: cascade]
+
+Ref "FK_SALES_ORDER_SUPPORT_SALES_PERSON":"users"."id" < "sales_orders"."support_sales_person_id" [update: cascade, delete: set null]
+
+Ref "FK_SERVICE_SELECTOR_CATEGORY":"categories"."id" < "service_selector_destinations"."category_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_SPEC_SERVICE_SELECTOR":"service_selectors"."id" < "service_selector_destinations"."service_selector_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_SPEC_SPEC":"specifications"."id" < "service_selector_destinations"."specification_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_CATEGORY":"categories"."id" < "service_selector_sources"."category_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_SPEC_SERVICE_SELECTOR":"service_selectors"."id" < "service_selector_sources"."service_selector_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_SPEC_SPEC":"specifications"."id" < "service_selector_sources"."specification_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_CREATOR":"users"."id" < "service_selectors"."creator_id" [update: cascade]
+
+Ref "FK_SERVICE_SELECTOR_STORE":"stores"."id" < "service_selectors"."store_id" [update: cascade]
+
+Ref "FK_SHIPMENT_CHECKLIST_CHECKLIST_ITEM":"checklist_items"."id" < "shipment_checklists"."checklist_item_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_CHECKLIST_SHIPMENT":"shipment_line_items"."id" < "shipment_checklists"."shipment_line_item_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_CREATOR":"users"."id" < "shipment_line_items"."creator_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_ITEM_STORE":"item_stores"."id" < "shipment_line_items"."item_store_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_SALES_ORDER_LINE_ITEM":"sales_order_line_items"."id" < "shipment_line_items"."sales_order_line_item_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_SHIPMENT":"shipments"."id" < "shipment_line_items"."shipment_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_STORE":"stores"."id" < "shipment_line_items"."store_id" [update: cascade]
+
+Ref "FK_SHIPMENT_LINE_ITEM_UNIT":"units"."id" < "shipment_line_items"."unit_id" [update: cascade]
+
+Ref "FK_SHIPMENT_CARRIER":"carriers"."id" < "shipments"."carrier_id" [update: cascade, delete: set null]
+
+Ref "FK_SHIPMENT_CREATOR":"users"."id" < "shipments"."creator_id" [update: cascade]
+
+Ref "FK_SHIPMENT_SALES_ORDER":"sales_orders"."id" < "shipments"."sales_order_id" [update: cascade]
+
+Ref "FK_SHIPMENT_SHIPPING_SERVICE_TYPE":"shipping_service_types"."id" < "shipments"."shipping_service_type_id" [update: cascade, delete: set null]
+
+Ref "FK_SHIPMENT_STORE":"stores"."id" < "shipments"."store_id" [update: cascade]
+
+Ref "FK_CARRIER_STORE":"stores"."id" < "shipping_service_types"."store_id" [update: cascade]
+
+Ref "FK_SHIPPING_SERVICE_TYPE_CARRIER":"carriers"."id" < "shipping_service_types"."carrier_id" [update: cascade]
+
+Ref "FK_SHIPPING_SERVICE_TYPE_CREATOR":"users"."id" < "shipping_service_types"."creator_id" [update: cascade]
+
+Ref "FK_SPEC_RULE_TARGET_SPECIFICATION":"specifications"."id" < "spec_rule_targets"."specification_id" [update: cascade]
+
+Ref "FK_SPEC_RULE_TARGET_SPEC_RULE":"spec_rules"."id" < "spec_rule_targets"."spec_rule_id" [update: cascade]
+
+Ref "FK_SPEC_RULE_CATEGORY":"categories"."id" < "spec_rules"."category_id" [update: cascade]
+
+Ref "FK_SPEC_RULE_CREATOR":"users"."id" < "spec_rules"."creator_id" [update: cascade]
+
+Ref "FK_SPEC_RULE_SOURCE_SPECIFICATION":"specifications"."id" < "spec_rules"."source_specification_id" [update: cascade]
+
+Ref "FK_SPEC_RULE_STORE":"stores"."id" < "spec_rules"."store_id" [update: cascade]
+
+Ref "FK_SPECIFICATION_CATEGORY":"categories"."id" < "specifications"."category_id" [update: cascade]
+
+Ref "FK_SPECIFICATION_CREATOR":"users"."id" < "specifications"."creator_id" [update: cascade]
+
+Ref "FK_SPECIFICATION_STORE":"stores"."id" < "specifications"."store_id" [update: cascade, delete: set null]
+
+Ref "FK_STORE_CONFIG_STORE":"stores"."id" < "store_configs"."store_id" [update: cascade]
+
+Ref "FK_STORE_MISC_SETTING_STORE":"stores"."id" < "store_misc_settings"."store_id" [update: cascade]
+
+Ref "FK_STORE_TEMPLATE":"ds_templates"."id" < "store_misc_settings"."template_id" [update: cascade, delete: set null]
+
+Ref "FK_STORE_CREATOR":"users"."id" < "stores"."creator_id" [update: cascade]
+
+Ref "FK_STORE_OWNER":"users"."id" < "stores"."owner_id" [update: cascade, delete: set null]
+
+Ref "stores_guilds_guild_entity_id_foreign":"guilds"."id" < "stores_guilds"."guild_entity_id" [update: cascade, delete: cascade]
+
+Ref "stores_guilds_store_entity_id_foreign":"stores"."id" < "stores_guilds"."store_entity_id" [update: cascade, delete: cascade]
+
+Ref "FK_TIMELOG_CREATOR":"users"."id" < "timelogs"."creator_id" [update: cascade]
+
+Ref "FK_TIMELOG_PRODUCTION_TASK":"production_tasks"."id" < "timelogs"."production_task_id" [update: cascade, delete: set null]
+
+Ref "FK_TIMELOG_STORE":"stores"."id" < "timelogs"."store_id" [update: cascade]
+
+Ref "FK_TIMELOG_UNIT":"units"."id" < "timelogs"."unit_id" [update: cascade]
+
+Ref "FK_TIMELOG_USER":"users"."id" < "timelogs"."user_id" [update: cascade]
+
+Ref "FK_UNIT_BOM_RECORD_CREATOR":"users"."id" < "unit_bom_records"."creator_id" [update: cascade]
+
+Ref "FK_UNIT_BOM_RECORD_ITEM_STORE":"item_stores"."id" < "unit_bom_records"."item_store_id" [update: cascade]
+
+Ref "FK_UNIT_BOM_RECORD_PARENT_RECORD":"unit_bom_records"."id" < "unit_bom_records"."parent_record_id" [update: cascade, delete: set null]
+
+Ref "FK_UNIT_BOM_RECORD_STORE":"stores"."id" < "unit_bom_records"."store_id" [update: cascade]
+
+Ref "FK_UNIT_BOM_RECORD_UNIT":"units"."id" < "unit_bom_records"."unit_id" [update: cascade]
+
+Ref "FK_UNIT_CREATOR":"users"."id" < "units"."creator_id" [update: cascade]
+
+Ref "FK_UNIT_ITEM_STORE":"item_stores"."id" < "units"."item_store_id" [update: cascade]
+
+Ref "FK_UNIT_SALES_ORDER":"sales_orders"."id" < "units"."sales_order_id" [update: cascade]
+
+Ref "FK_UNIT_SALES_ORDER_LINE_ITEM":"sales_order_line_items"."id" < "units"."sales_order_line_item_id" [update: cascade]
+
+Ref "FK_UNIT_STORE":"stores"."id" < "units"."store_id" [update: cascade]
+
+Ref "units_part_request_id_foreign":"part_requests"."id" < "units"."part_request_id" [update: cascade, delete: set null]
+
+Ref "FK_UOM_CREATOR":"users"."id" < "uoms"."creator_id" [update: cascade]
+
+Ref "FK_UOM_ITEM_STORE":"item_stores"."id" < "uoms"."item_store_id" [update: cascade]
+
+Ref "FK_UOM_STORE":"stores"."id" < "uoms"."store_id" [update: cascade]
+
+Ref "FK_USER_STORE_CREATOR":"users"."id" < "user_stores"."creator_id" [update: cascade]
+
+Ref "FK_USER_STORE_STORE":"stores"."id" < "user_stores"."store_id" [update: cascade]
+
+Ref "FK_USER_STORE_USER":"users"."id" < "user_stores"."user_id" [update: cascade]
+
+Ref "FK_USER_TYPE_USER":"users"."id" < "user_types"."user_id" [update: cascade]
+
+Ref "FK_USER_CREATOR":"users"."id" < "users"."creator_id" [update: cascade, delete: set null]
+
+Ref "users_departments_department_entity_id_foreign":"departments"."id" < "users_departments"."department_entity_id" [update: cascade, delete: cascade]
+
+Ref "users_departments_user_entity_id_foreign":"users"."id" < "users_departments"."user_entity_id" [update: cascade, delete: cascade]
+
+Ref "users_roles_role_entity_id_foreign":"roles"."id" < "users_roles"."role_entity_id" [update: cascade, delete: cascade]
+
+Ref "users_roles_user_entity_id_foreign":"users"."id" < "users_roles"."user_entity_id" [update: cascade, delete: cascade]
+
+Ref "FK_VARIANT_CATEGORY":"categories"."id" < "variants"."category_id" [update: cascade]
+
+Ref "FK_VARIANT_CREATOR":"users"."id" < "variants"."creator_id" [update: cascade]
+
+Ref "FK_VARIANT_STORE":"stores"."id" < "variants"."store_id" [update: cascade]
+
+Ref "FK_VENDING_CREATOR":"users"."id" < "vending"."creator_id" [update: cascade]
+
+Ref "FK_VENDING_ITEM_STORE":"item_stores"."id" < "vending"."item_store_id" [update: cascade]
+
+Ref "FK_VENDING_STORE":"stores"."id" < "vending"."store_id" [update: cascade]
+
+Ref "FK_VENDING_VENDOR":"vendors"."id" < "vending"."vendor_id" [update: cascade]
+
+Ref "FK_VENDING_COST_CREATOR":"users"."id" < "vending_cost"."creator_id" [update: cascade]
+
+Ref "FK_VENDING_COST_PURCHASE_ORDER":"purchase_orders"."id" < "vending_cost"."purchase_order_id" [update: cascade, delete: set null]
+
+Ref "FK_VENDING_COST_VENDING":"vending"."id" < "vending_cost"."vending_id" [update: cascade]
+
+Ref "FK_VENDOR_CREATOR":"users"."id" < "vendors"."creator_id" [update: cascade]
+
+Ref "FK_VENDOR_REFERENCE_STORE":"stores"."id" < "vendors"."reference_store_id" [update: cascade, delete: set null]
+
+Ref "FK_VENDOR_STORE":"stores"."id" < "vendors"."store_id" [update: cascade]
+
+Ref "FK_WARRANTY_UNIT":"units"."id" < "warranties"."unit_id" [update: cascade]
