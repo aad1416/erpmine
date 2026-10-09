@@ -6,12 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.setting import settings
+from app.services.redis_service import RedisProvider
 from app.services.seed_scheduler import start_seed_scheduler, stop_seed_scheduler
 from app.services.log_sync_retry_job import (
     start_log_sync_retry_scheduler,
     stop_log_sync_retry_scheduler,
 )
-from app.support.init import start_support, stop_support
+from app.support.init import start_support, stop_support, is_support_leader
 
 logging.basicConfig(
     level=settings.LOG_LEVEL,
@@ -54,6 +55,7 @@ from app.routes import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.redis = RedisProvider()
     if settings.OPENAI_API_KEY:
         agents.set_default_openai_key(
             settings.OPENAI_API_KEY,
@@ -71,9 +73,11 @@ async def lifespan(app: FastAPI):
 
     if settings.SUPPORT_ENABLED:
         await start_support(app)
-        start_log_sync_retry_scheduler()
+        if is_support_leader():
+            start_log_sync_retry_scheduler()
 
     yield
+    await app.state.redis.close()
 
     stop_seed_scheduler()
 

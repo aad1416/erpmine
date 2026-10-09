@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     # AI Support Ticket System (app/support/) — see app/support/10-implementation-plan.md
     SUPPORT_ENABLED: bool = True
     SUPPORT_LOCK_FILE: str = "/tmp/ut-ai-support.lock"
+    # Process lock for leader/follower pattern
+    SUPPORT_LEADER_LOCK_FILE: str = "/tmp/ut-ai-support-leader.lock"
 
     SUPPORT_TASK_MAX_RETRIES: int = 3
     SUPPORT_TASK_HEARTBEAT_TIMEOUT_SECONDS: int = 120

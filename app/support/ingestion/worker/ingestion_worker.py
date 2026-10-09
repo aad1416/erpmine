@@ -273,12 +273,17 @@ class IngestionWorker:
     pass and then once a day."""
 
     def __init__(
-        self, mailbox_registry: MailboxRegistry, fallback_interval_seconds: float
-    ) -> None:
+        self,
+        mailbox_registry: MailboxRegistry,
+        fallback_interval_seconds: float,
+        signal_bus=None):
+
         self.mailbox_registry = mailbox_registry
         self._fallback_interval_seconds = fallback_interval_seconds
+        self._signal_bus = signal_bus
         self._wake_event = asyncio.Event()
         self._loop_task: asyncio.Task | None = None
+        self._listener_task: asyncio.Task | None = None
         self._last_purge_at: float | None = None
 
     def start(self) -> None:
@@ -287,6 +292,8 @@ class IngestionWorker:
             raise RuntimeError("an ingestion worker is already running")
         _running_worker = self
         self._loop_task = asyncio.create_task(self._run(), name="support-ingestion-worker")
+        if self._signal_bus is not None:
+            self._listener_task = asyncio.create_task(self._listen_signals(), name="support-signal-listener")
         logger.info(
             "Ingestion worker started (fallback interval=%ss)", self._fallback_interval_seconds
         )
@@ -297,18 +304,29 @@ class IngestionWorker:
         global _running_worker
         if _running_worker is self:
             _running_worker = None
-        if self._loop_task is None:
-            return
-        self._loop_task.cancel()
-        try:
-            await self._loop_task
-        except asyncio.CancelledError:
-            pass
+
+        for task in (self._listener_task, self._loop_task):   # listener first
+            if task is None:
+                continue
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._listener_task = None
         self._loop_task = None
         logger.info("Ingestion worker stopped")
 
     def wake(self) -> None:
         self._wake_event.set()
+
+    async def _listen_signals(self) -> None:
+        """bridge Redis signals to the in-process wake event (leader only)"""
+        while True:
+            await self._signal_bus.wait_for_signal(
+                timeout=self._fallback_interval_seconds
+            )
+            self._wake_event.set()
 
     async def _purge_finished_tasks_if_due(self) -> None:
         now = time.monotonic()
