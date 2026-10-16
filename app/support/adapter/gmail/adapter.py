@@ -41,6 +41,7 @@ Gap: a reply Gmail filed in a different thread isn't found, so could be sent twi
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -56,6 +57,9 @@ from sqlalchemy.orm import Session
 
 from app.config.setting import settings
 from app.db.database import SessionLocal
+from app.support.adapter.attachment_capture_port import (
+    AttachmentCaptureFactory, make_attachment_capture,
+)
 from app.support.adapter.gmail.client import (
     GmailClient,
     GmailCredentialsConfig,
@@ -68,11 +72,15 @@ from app.support.adapter.gmail.models import (
     GmailSentReply,
     GmailSentReplyStatus,
 )
-from app.support.adapter.gmail.normalize import normalize_gmail_message
+from app.support.adapter.gmail.normalize import (
+    extract_gmail_attachment_candidates,
+    normalize_gmail_message,
+)
 from app.support.adapter.gmail.settings import gmail_settings
 from app.support.adapter.gmail.watch_repository import save_watch
 from app.support.adapter.gmail.webhook import build_webhook_router
 from app.support.adapter.base import MailboxAdapter, MessageSink, adapter
+from app.support.adapter.capture_attachments import capture_attachments
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.schemas import NormalizedMessage
 
@@ -120,6 +128,8 @@ class _MailboxState:
     wake: asyncio.Event = field(default_factory=asyncio.Event)
     next_watch_renewal: float = 0.0  # event loop time; 0 renews on the first read
     revoked: bool = False
+    stopping: bool = False
+    send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     @property
     def address(self) -> str:
@@ -132,14 +142,18 @@ class GmailAdapter(MailboxAdapter):
         self,
         credential_rows: list[GmailMailbox],
         client_factory: Callable[..., GmailClient] | None = None,
+        capture_factory: AttachmentCaptureFactory = make_attachment_capture,
     ) -> None:
-        client_factory = client_factory or GmailClient
+        self._client_factory = client_factory or GmailClient
+        self._capture_factory = capture_factory
         self._mailboxes: dict[str, _MailboxState] = {}
         # Mailboxes in the table that this adapter doesn't serve, and why: logged at start.
         self._not_served: dict[str, str] = {}
         client_configured = bool(gmail_settings.CLIENT_ID and gmail_settings.CLIENT_SECRET)
         for row in credential_rows:
             mailbox_key = MailboxKey.of(ADAPTER_NAME, row.mailbox)
+            if not row.enabled:
+                continue
             if not client_configured:
                 self._not_served[mailbox_key.mailbox] = (
                     "can't be served: SUPPORT_GMAIL_CLIENT_ID and SUPPORT_GMAIL_CLIENT_SECRET "
@@ -148,13 +162,13 @@ class GmailAdapter(MailboxAdapter):
                 continue
             if not row.refresh_token:
                 self._not_served[mailbox_key.mailbox] = (
-                    "has no refresh token. Run scripts/seed_support_mailboxes.py"
+                    "has no refresh token"
                 )
                 continue
             self._mailboxes[mailbox_key.mailbox] = _MailboxState(
                 mailbox_key=mailbox_key,
                 stored_address=row.mailbox,
-                client=client_factory(
+                client=self._client_factory(
                     GmailCredentialsConfig(
                         client_id=gmail_settings.CLIENT_ID,
                         client_secret=gmail_settings.CLIENT_SECRET,
@@ -167,10 +181,17 @@ class GmailAdapter(MailboxAdapter):
             )
         self._sink: MessageSink | None = None
         self._stopping = asyncio.Event()
-        self._read_tasks: list[asyncio.Task] = []
+        self._read_tasks: dict[str, asyncio.Task] = {}
+        self._activation_lock = asyncio.Lock()
+        self._notice_task: asyncio.Task | None = None
 
     def router(self) -> APIRouter:
-        return build_webhook_router(self._on_push)
+        from app.support.adapter.gmail.routes import router
+
+        combined = APIRouter()
+        combined.include_router(build_webhook_router(self._on_push))
+        combined.include_router(router)
+        return combined
 
     async def start(self, sink: MessageSink) -> None:
         self._sink = sink
@@ -188,18 +209,25 @@ class GmailAdapter(MailboxAdapter):
                 "Gmail push mode without SUPPORT_GMAIL_PUBSUB_AUDIENCE — webhook token "
                 "verification is disabled, any caller can trigger a read"
             )
-        # Messages captured before a crash first, so they reach ingestion before newer mail.
-        try:
-            await self._sink_undelivered()
-        except Exception:
-            logger.exception(
-                "Gmail: re-sinking undelivered messages failed; each Mailbox's next read "
-                "retries its own"
-            )
+        # Recover only enabled accounts. Disabled accounts keep their outbox until
+        # re-enabled, when their first read retries it.
+        for state in self._mailboxes.values():
+            try:
+                await self._sink_undelivered(state.address)
+            except Exception:
+                logger.exception(
+                    "Gmail Mailbox %s: re-sinking undelivered messages failed; its "
+                    "next read retries them", state.address
+                )
         for state in self._mailboxes.values():
             state.wake = asyncio.Event()
-            self._read_tasks.append(
-                asyncio.create_task(self._run(state), name=f"gmail-read-{state.address}")
+            state.stopping = False
+            self._read_tasks[state.address] = asyncio.create_task(
+                self._run(state), name=f"gmail-read-{state.address}"
+            )
+        if push:
+            self._notice_task = asyncio.create_task(
+                self._listen_adapter_notices(), name="gmail-adapter-notice-listener"
             )
         logger.info(
             "Gmail reading %d Mailbox(es) in %s mode every %ss",
@@ -212,17 +240,99 @@ class GmailAdapter(MailboxAdapter):
         """Lets each read finish the step it is on (a Gmail API request is bounded by
         the timeout), then cancels what is left."""
         self._stopping.set()
-        for state in self._mailboxes.values():
-            state.wake.set()
-        if self._read_tasks:
-            _, still_running = await asyncio.wait(
-                self._read_tasks, timeout=gmail_settings.TIMEOUT_SECONDS
+        async with self._activation_lock:
+            for state in self._mailboxes.values():
+                state.stopping = True
+                state.wake.set()
+            tasks = list(self._read_tasks.values())
+            if self._notice_task is not None:
+                self._notice_task.cancel()
+                tasks.append(self._notice_task)
+            if tasks:
+                _, still_running = await asyncio.wait(
+                    tasks, timeout=gmail_settings.TIMEOUT_SECONDS
+                )
+                for task in still_running:
+                    task.cancel()
+                if still_running:
+                    await asyncio.gather(*still_running, return_exceptions=True)
+            self._read_tasks = {}
+            self._notice_task = None
+            self._sink = None
+
+    async def reload_mailbox(self, db: Session, address: str) -> None:
+        """Apply a saved account change to the running reader without losing its cursor."""
+        address = address.lower()
+        async with self._activation_lock:
+            old = self._mailboxes.pop(address, None)
+            task = self._read_tasks.pop(address, None)
+            if old is not None:
+                old.stopping = True
+                old.wake.set()
+            if task is not None:
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), gmail_settings.TIMEOUT_SECONDS)
+                except TimeoutError:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+            # A reply may already hold this state even after it leaves _mailboxes.
+            # Let it finish before reporting that a disable or token change applied.
+            if old is not None:
+                async with old.send_lock:
+                    pass
+            # A finishing read may have advanced history_id after the API committed.
+            db.expire_all()
+            row = db.get(GmailMailbox, address)
+            self._not_served.pop(address, None)
+            if row is None or not row.enabled:
+                return
+            if not gmail_settings.CLIENT_ID or not gmail_settings.CLIENT_SECRET:
+                self._not_served[address] = "OAuth client is not configured"
+                return
+            if not row.refresh_token:
+                self._not_served[address] = "refresh token is missing"
+                return
+            state = _MailboxState(
+                mailbox_key=MailboxKey.of(ADAPTER_NAME, row.mailbox),
+                stored_address=row.mailbox,
+                client=self._client_factory(
+                    GmailCredentialsConfig(
+                        client_id=gmail_settings.CLIENT_ID,
+                        client_secret=gmail_settings.CLIENT_SECRET,
+                        refresh_token=row.refresh_token,
+                    ),
+                    user_email=address,
+                    timeout=gmail_settings.TIMEOUT_SECONDS,
+                ),
+                history_id=row.history_id,
             )
-            for read_task in still_running:
-                read_task.cancel()
-        self._read_tasks = []
+            self._mailboxes[address] = state
+            if self._sink is not None and not self._stopping.is_set():
+                self._read_tasks[address] = asyncio.create_task(
+                    self._run(state), name=f"gmail-read-{address}"
+                )
+
+    def activation_status(self, address: str) -> tuple[str, str | None]:
+        address = address.lower()
+        if address in self._not_served:
+            return "failed", self._not_served[address]
+        if self._sink is None or self._stopping.is_set():
+            return "unavailable", "Support service is not running"
+        state = self._mailboxes.get(address)
+        if state is None:
+            return "disabled", None
+        if state.revoked:
+            return "failed", "Gmail refresh token was refused"
+        return "active", None
 
     def _on_push(self, address: str) -> None:
+        from app.support.leader import is_support_leader
+        from app.support.signal_bus import get_signal_bus
+
+        if not is_support_leader():
+            # webhook fired on a follower. The read loops only run on the leader.
+            asyncio.create_task(get_signal_bus().signal_adapter_notice(address))
+            return
         state = self._mailboxes.get(address.lower())
         if state is None:
             logger.warning("Gmail push for a Mailbox not served here: %s", address)
@@ -232,13 +342,23 @@ class GmailAdapter(MailboxAdapter):
             return
         state.wake.set()
 
+    async def _listen_adapter_notices(self) -> None:
+        """Leader only"""
+        from app.support.signal_bus import get_signal_bus
+
+        bus = get_signal_bus()
+        while not self._stopping.is_set():
+            address = await bus.wait_for_adapter_notice(timeout=self._read_interval())
+            if address and not self._stopping.is_set():
+                self._on_push(address)
+
     def _read_interval(self) -> float:
         if gmail_settings.DETECTION_MODE == "push":
             return gmail_settings.BACKUP_POLL_INTERVAL_SECONDS
         return gmail_settings.POLL_INTERVAL_SECONDS
 
     async def _run(self, state: _MailboxState) -> None:
-        while not self._stopping.is_set():
+        while not self._stopping.is_set() and not state.stopping:
             # Cleared before the read, so a push arriving during it runs another read.
             state.wake.clear()
             try:
@@ -249,13 +369,15 @@ class GmailAdapter(MailboxAdapter):
                 logger.error(
                     "Gmail Mailbox %s: refresh token refused (%s). Reading this Mailbox is "
                     "stopped; other Mailboxes keep running. Reconnect it: set a new refresh "
-                    "token in its gmail_mailboxes row and restart.",
+                    "token through the Gmail mailbox API.",
                     state.address,
                     error,
                 )
                 return
             except Exception:
                 logger.exception("Gmail Mailbox %s: read failed", state.address)
+            if state.stopping or self._stopping.is_set():
+                break
             try:
                 await asyncio.wait_for(state.wake.wait(), timeout=self._read_interval())
             except TimeoutError:
@@ -351,7 +473,7 @@ class GmailAdapter(MailboxAdapter):
             )
             if already_captured is not None:
                 continue
-            normalized = await self._fetch(state, message_id)
+            normalized = await self._fetch(db, state, message_id)
             if normalized is None:
                 continue
             outbox_row = GmailOutboxMessage(
@@ -365,7 +487,9 @@ class GmailAdapter(MailboxAdapter):
         self._commit_cursor(db, state, history_record.get("id") or state.history_id)
         return new_rows
 
-    async def _fetch(self, state: _MailboxState, message_id: str) -> NormalizedMessage | None:
+    async def _fetch(
+        self, db: Session, state: _MailboxState, message_id: str
+    ) -> NormalizedMessage | None:
         """The message normalized, or None when it is gone, is our own sent mail, or
         can't be normalized. Any other failure raises and fails the read, so the record
         is read again next time."""
@@ -387,7 +511,7 @@ class GmailAdapter(MailboxAdapter):
             )
             return None
         try:
-            return normalize_gmail_message(state.mailbox_key, raw_message)
+            normalized = normalize_gmail_message(state.mailbox_key, raw_message)
         except Exception:
             logger.error(
                 "Gmail Mailbox %s: message %s can't be normalized, skipping it",
@@ -396,6 +520,25 @@ class GmailAdapter(MailboxAdapter):
                 exc_info=True,
             )
             return None
+
+        service = self._capture_factory(db)
+        candidates = extract_gmail_attachment_candidates(raw_message.get("payload", {}))
+        async def load(candidate, _position):
+            if candidate.inline_data:
+                encoded = candidate.inline_data
+                encoded += "=" * (-len(encoded) % 4)
+                return base64.urlsafe_b64decode(encoded)
+            if candidate.download_id:
+                return await asyncio.to_thread(
+                    state.client.get_attachment, message_id, candidate.download_id
+                )
+            return None
+
+        await capture_attachments(
+            service, normalized, candidates, load, provider="Gmail", logger=logger,
+            failure_detail="The attachment could not be downloaded from Gmail.",
+        )
+        return normalized
 
     async def _hand_over(self, db: Session, outbox_row: GmailOutboxMessage) -> None:
         await self._sink(NormalizedMessage.model_validate(outbox_row.normalized_payload))
@@ -455,6 +598,14 @@ class GmailAdapter(MailboxAdapter):
         if state is None:
             raise LookupError(f"Gmail: no usable Mailbox {mailbox!r} to reply from")
 
+        async with state.send_lock:
+            if state.stopping:
+                raise LookupError(f"Gmail: no usable Mailbox {mailbox!r} to reply from")
+            await self._send_from_state(state, conversation_id, text, idempotency_key)
+
+    async def _send_from_state(
+        self, state: _MailboxState, conversation_id: str, text: str, idempotency_key: str
+    ) -> None:
         db = SessionLocal()
         try:
             sent_reply, interrupted = self._claim_send(db, state, conversation_id, idempotency_key)

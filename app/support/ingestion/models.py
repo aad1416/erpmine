@@ -10,6 +10,7 @@ from app.db.database import Base
 class TaskType(str, enum.Enum):
     message = "message"
     create_ticket = "create_ticket"
+    attach_ticket_file = "attach_ticket_file"
     send_message = "send_message"
     # Never claimed: only used for synthesized dead-lettered escalation audit rows.
     ask_question = "ask_question"
@@ -67,4 +68,3 @@ class IngestionTask(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
-

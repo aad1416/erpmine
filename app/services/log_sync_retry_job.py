@@ -63,7 +63,12 @@ async def _drain_pending() -> None:
                 db.commit()
                 continue
 
-            success = await client.send_message(row.ticket_id, message.body_text)
+            success = await client.send_message(
+                row.ticket_id,
+                message.body_text,
+                idempotency_key=message.id,
+                is_sender_the_client=message.direction == "inbound",
+            )
             row.attempt_count += 1
             if success:
                 row.status = "done"

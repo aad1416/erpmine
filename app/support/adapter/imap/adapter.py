@@ -45,7 +45,9 @@ from __future__ import annotations
 
 import asyncio
 import imaplib
+import json
 import logging
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
@@ -59,6 +61,9 @@ from sqlalchemy.orm import Session
 
 from app.config.setting import settings
 from app.db.database import SessionLocal
+from app.support.adapter.attachment_capture_port import (
+    AttachmentCaptureFactory, make_attachment_capture,
+)
 from app.support.adapter.imap.accounts import ImapMailboxConfig
 from app.support.adapter.imap.client import (
     FetchedMessage,
@@ -69,6 +74,7 @@ from app.support.adapter.imap.client import (
 )
 from app.support.adapter.imap.filters import SkipReason, non_customer_reason
 from app.support.adapter.imap.models import (
+    ImapAddressTransition,
     ImapMailbox,
     ImapOutboxMessage,
     ImapOutboxStatus,
@@ -81,9 +87,29 @@ from app.support.adapter.imap.normalize import (
     header_message_key,
     new_conversation_id,
     normalize_imap_message,
+    extract_imap_attachment_candidates,
     read_thread_headers,
 )
 from app.support.adapter.imap.settings import imap_settings
+from app.support.adapter.imap.mailbox_repository import ImapMailboxRepository
+from app.support.adapter.imap.mailbox_service import (
+    MailboxConflict,
+    preview_mailbox,
+    save_mailbox,
+)
+from app.support.adapter.imap.schemas import (
+    ImapMailboxSettings,
+    ImapTransitionWork,
+    UpdateImapMailbox,
+)
+from app.support.adapter.imap.transition_service import (
+    begin_transition,
+    cancel_transition,
+    captured_under_retired_address,
+    has_pending_work,
+    transition_work,
+    waiting_transition,
+)
 from app.support.adapter.imap.smtp import (
     SmtpMailboxSender,
     SmtpSend,
@@ -93,6 +119,7 @@ from app.support.adapter.imap.smtp import (
 )
 from app.support.adapter.imap.thread_repository import ImapThreadRepository
 from app.support.adapter.base import MailboxAdapter, MessageSink, adapter
+from app.support.adapter.capture_attachments import capture_attachments
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.schemas import NormalizedMessage
 
@@ -100,8 +127,21 @@ logger = logging.getLogger(__name__)
 
 ADAPTER_NAME = "imap"
 
+
+class MailboxActivationFailed(Exception):
+    """A proposed connection could not be activated; saved settings were unchanged."""
+
+
+class MailboxTransitionPending(Exception):
+    """The old address still has work that must finish before it is retired."""
+
+    def __init__(self, work: ImapTransitionWork) -> None:
+        self.work = work
+        super().__init__("Previous mailbox has unfinished support work")
+
+
 MAX_MESSAGES_PER_POLL = 200  # the rest wait for the next poll, oldest first
-MAX_MESSAGE_BYTES = 25 * 1024 * 1024  # larger messages are logged and skipped
+MAX_MESSAGE_BYTES = 40 * 1024 * 1024  # allows base64 expansion of accepted files
 MAX_ATTEMPTS = 3  # a message that fails this many polls running is logged and skipped
 RESCAN_DAYS = 3  # how far back to rescan by date after a UIDVALIDITY change
 
@@ -139,11 +179,14 @@ class _MailboxState:
     """One IMAP Mailbox's state. `client.login_rejected` is set once its login fails."""
 
     mailbox_key: MailboxKey
+    store_id: str
     stored_address: str  # the row's primary key, as stored
     config: ImapMailboxConfig
     client: ImapMailboxClient
     smtp: SmtpMailboxSender
     cursor: str | None
+    stop_event: asyncio.Event
+    send_lock: asyncio.Lock
 
     @property
     def address(self) -> str:
@@ -162,10 +205,13 @@ class ImapAdapter(MailboxAdapter):
         credential_rows: list[ImapMailbox],
         imap_factory: Callable[..., IMAPClient] | None = None,
         smtp_send: SmtpSend | None = None,
+        capture_factory: AttachmentCaptureFactory = make_attachment_capture,
     ) -> None:
-        imap_factory = imap_factory or IMAPClient
-        smtp_send = smtp_send or aiosmtplib_send
+        self._imap_factory = imap_factory or IMAPClient
+        self._smtp_send = smtp_send or aiosmtplib_send
+        self._capture_factory = capture_factory
         self._mailboxes: dict[str, _MailboxState] = {}
+        self._activation: dict[str, tuple[str, str | None]] = {}
         # Mailboxes in the table that this adapter doesn't serve, and why: logged at start.
         self._not_served: dict[str, str] = {}
         for row in credential_rows:
@@ -174,39 +220,53 @@ class ImapAdapter(MailboxAdapter):
                 self._not_served[mailbox_key.mailbox] = (
                     "has no app password. Run scripts/seed_support_mailboxes.py"
                 )
+                self._activation[row.store_id] = ("failed", "IMAP app password is missing")
                 continue
-            config = ImapMailboxConfig(
-                email=mailbox_key.mailbox,
-                app_password=row.app_password,
-                imap_host=row.imap_host,
-                imap_port=row.imap_port,
-                imap_tls_mode=row.imap_tls_mode,
-                smtp_host=row.smtp_host,
-                smtp_port=row.smtp_port,
-                smtp_tls_mode=row.smtp_tls_mode,
-            )
-            self._mailboxes[mailbox_key.mailbox] = _MailboxState(
-                mailbox_key=mailbox_key,
-                stored_address=row.mailbox,
-                config=config,
-                client=ImapMailboxClient(
-                    host=config.imap_host,
-                    port=config.imap_port,
-                    tls_mode=config.imap_tls_mode,
-                    authenticator=PasswordAuthenticator(config.email, config.app_password),
-                    timeout=imap_settings.TIMEOUT_SECONDS,
-                    imap_factory=imap_factory,
-                ),
-                smtp=SmtpMailboxSender(
-                    config, timeout=imap_settings.TIMEOUT_SECONDS, smtp_send=smtp_send
-                ),
-                cursor=row.cursor,
-            )
+            self._mailboxes[mailbox_key.mailbox] = self._state_from_row(row)
+            self._activation[row.store_id] = ("activating", None)
         self._sink: MessageSink | None = None
         self._stopping = asyncio.Event()
-        self._poll_tasks: list[asyncio.Task] = []
+        self._poll_tasks: dict[str, asyncio.Task] = {}
+        self._activation_lock = asyncio.Lock()
+
+    def _state_from_row(self, row: ImapMailbox) -> _MailboxState:
+        if not row.app_password:
+            raise ValueError("IMAP app password is missing")
+        mailbox_key = MailboxKey.of(ADAPTER_NAME, row.mailbox)
+        config = ImapMailboxConfig(
+            email=mailbox_key.mailbox,
+            app_password=row.app_password,
+            imap_host=row.imap_host,
+            imap_port=row.imap_port,
+            imap_tls_mode=row.imap_tls_mode,
+            smtp_host=row.smtp_host,
+            smtp_port=row.smtp_port,
+            smtp_tls_mode=row.smtp_tls_mode,
+        )
+        return _MailboxState(
+            mailbox_key=mailbox_key,
+            store_id=row.store_id,
+            stored_address=row.mailbox,
+            config=config,
+            client=ImapMailboxClient(
+                host=config.imap_host,
+                port=config.imap_port,
+                tls_mode=config.imap_tls_mode,
+                authenticator=PasswordAuthenticator(config.email, config.app_password),
+                timeout=imap_settings.TIMEOUT_SECONDS,
+                imap_factory=self._imap_factory,
+            ),
+            smtp=SmtpMailboxSender(
+                config, timeout=imap_settings.TIMEOUT_SECONDS, smtp_send=self._smtp_send
+            ),
+            cursor=row.cursor,
+            stop_event=asyncio.Event(),
+            send_lock=asyncio.Lock(),
+        )
 
     async def start(self, sink: MessageSink) -> None:
+        if self._sink is not None and not self._stopping.is_set():
+            return
         self._sink = sink
         self._stopping = asyncio.Event()
         for address, reason in self._not_served.items():
@@ -220,8 +280,10 @@ class ImapAdapter(MailboxAdapter):
                 "retries its own"
             )
         for state in self._mailboxes.values():
-            self._poll_tasks.append(
-                asyncio.create_task(self._poll_forever(state), name=f"imap-poll-{state.address}")
+            state.stop_event = asyncio.Event()
+            self._activation[state.store_id] = ("activating", None)
+            self._poll_tasks[state.store_id] = asyncio.create_task(
+                self._poll_forever(state), name=f"imap-poll-{state.address}"
             )
         logger.info(
             "IMAP polling %d Mailbox(es) every %ss",
@@ -233,15 +295,261 @@ class ImapAdapter(MailboxAdapter):
         """Lets each poll finish the step it is on (an IMAP step is bounded by the
         timeout), then drops the connections."""
         self._stopping.set()
-        if self._poll_tasks:
-            _, still_running = await asyncio.wait(
-                self._poll_tasks, timeout=imap_settings.TIMEOUT_SECONDS
+        async with self._activation_lock:
+            for state in self._mailboxes.values():
+                state.stop_event.set()
+            if self._poll_tasks:
+                _, still_running = await asyncio.wait(
+                    self._poll_tasks.values(), timeout=imap_settings.TIMEOUT_SECONDS
+                )
+                for poll_task in still_running:
+                    poll_task.cancel()
+                if still_running:
+                    await asyncio.gather(*still_running, return_exceptions=True)
+            self._poll_tasks = {}
+            for state in self._mailboxes.values():
+                await asyncio.to_thread(state.client.drop_connection)
+            for store_id in self._activation:
+                self._activation[store_id] = ("unavailable", "Support service is not running")
+            self._sink = None
+
+    def activation_status(self, store_id: str) -> tuple[str, str | None]:
+        return self._activation.get(store_id, ("unavailable", "Mailbox is not active"))
+
+    @staticmethod
+    def _probe_failure(address: str, error: Exception) -> MailboxActivationFailed:
+        reason = (
+            "IMAP login was rejected"
+            if isinstance(error, MailboxLoginRejected)
+            else f"IMAP connection failed ({type(error).__name__})"
+        )
+        logger.warning("IMAP Mailbox %s activation failed: %s", address, reason)
+        return MailboxActivationFailed(reason)
+
+    def _set_activation_if_current(
+        self, state: _MailboxState, status: str, error: str | None
+    ) -> None:
+        if self._mailboxes.get(state.address) is state and not state.stop_event.is_set():
+            self._activation[state.store_id] = (status, error)
+
+    def _resume_previous(self, state: _MailboxState, status: tuple[str, str | None]) -> None:
+        state.stop_event.clear()
+        task = self._poll_tasks.get(state.store_id)
+        if task is not None and not task.done():
+            def restart_if_stopped(done: asyncio.Task) -> None:
+                if (
+                    self._poll_tasks.get(state.store_id) is done
+                    and self._mailboxes.get(state.address) is state
+                    and not self._stopping.is_set()
+                    and not state.stop_event.is_set()
+                ):
+                    self._poll_tasks[state.store_id] = asyncio.create_task(
+                        self._poll_forever(state), name=f"imap-poll-{state.address}"
+                    )
+
+            task.add_done_callback(restart_if_stopped)
+        else:
+            state.stop_event = asyncio.Event()
+            self._poll_tasks[state.store_id] = asyncio.create_task(
+                self._poll_forever(state), name=f"imap-poll-{state.address}"
             )
-            for poll_task in still_running:
-                poll_task.cancel()
-        self._poll_tasks = []
-        for state in self._mailboxes.values():
-            await asyncio.to_thread(state.client.drop_connection)
+        self._activation[state.store_id] = status
+
+    async def save_and_activate(
+        self, db: Session, store_id: str, request: UpdateImapMailbox
+    ) -> tuple[ImapMailboxSettings, bool]:
+        """Validate before committing; a failed replacement leaves the old inbox running."""
+        requested_at = datetime.now(UTC)
+        async with self._activation_lock:
+            if self._sink is None or self._stopping.is_set():
+                raise MailboxActivationFailed("Support service is not running")
+            saved_address = db.query(ImapMailbox.mailbox).filter_by(store_id=store_id).scalar()
+            proposed = preview_mailbox(db, store_id, request)
+            try:
+                candidate = self._state_from_row(proposed)
+            except ValueError as exc:
+                raise MailboxActivationFailed("Saved IMAP settings are incomplete") from exc
+            address_changed = saved_address is not None and saved_address != candidate.address
+            transition: ImapAddressTransition | None = None
+            if address_changed:
+                transition = waiting_transition(
+                    db, store_id, saved_address, candidate.address
+                )
+            change_started_at = transition.started_at if transition is not None else requested_at
+            if change_started_at.tzinfo is None:
+                change_started_at = change_started_at.replace(tzinfo=UTC)
+            # Do not hold a database read transaction while the IMAP login runs.
+            db.rollback()
+            previous = next(
+                (state for state in self._mailboxes.values() if state.store_id == store_id),
+                None,
+            )
+            task = self._poll_tasks.get(store_id)
+            if (
+                previous is not None
+                and previous.config == candidate.config
+                and task is not None
+                and not task.done()
+                and self.activation_status(store_id)[0] in {"active", "activating"}
+            ):
+                return save_mailbox(db, store_id, request)
+
+            previous_status = self.activation_status(store_id)
+            previous_stopping = False
+            activated = False
+            try:
+                endpoint = json.dumps([
+                    candidate.config.imap_host,
+                    candidate.config.imap_port,
+                    candidate.config.imap_tls_mode,
+                ])
+                if address_changed and (transition is None or transition.new_uidnext is None):
+                    # STATUS runs before the waiting transition is recorded. Once
+                    # recorded, every new UID is at or above this watermark,
+                    # including APPEND/COPY mail with an old INTERNALDATE.
+                    try:
+                        uidvalidity, uidnext = await asyncio.to_thread(
+                            candidate.client.inbox_uid_checkpoint
+                        )
+                    except Exception as exc:
+                        if transition is None:
+                            transition = begin_transition(
+                                db, store_id, saved_address, candidate.address, requested_at
+                            )
+                        raise self._probe_failure(candidate.address, exc) from exc
+                    if transition is None:
+                        transition = begin_transition(
+                            db, store_id, saved_address, candidate.address, requested_at
+                        )
+                    # The request-to-STATUS interval has no UID watermark. The
+                    # date scan handles normal mail, but a backdated APPEND in
+                    # that interval needs an explicit admin review.
+                    transition.backfill_review_required = True
+                    transition.new_uidvalidity = uidvalidity
+                    transition.new_uidnext = uidnext
+                    transition.new_endpoint = endpoint
+                    db.commit()
+
+                try:
+                    inbox = await asyncio.to_thread(candidate.client.open_inbox)
+                    first_uid = (
+                        await asyncio.to_thread(
+                            inbox.first_uid_received_since, change_started_at
+                        )
+                        if candidate.cursor is None else None
+                    )
+                except Exception as exc:
+                    raise self._probe_failure(candidate.address, exc) from exc
+
+                if transition is not None and transition.activation_error is not None:
+                    transition.activation_error = None
+                    db.commit()
+
+                if transition is not None and candidate.cursor is None:
+                    if (
+                        transition.new_uidvalidity != inbox.uidvalidity
+                        or transition.new_endpoint != endpoint
+                    ):
+                        # A saved UID from a different UID namespace is unsafe.
+                        # Scan from the beginning and let the outbox deduplicate.
+                        logger.warning(
+                            "IMAP Mailbox %s changed UID namespace during transition; "
+                            "rescanning the new INBOX",
+                            candidate.address,
+                        )
+                        first_uid = 1
+                    elif transition.new_uidnext is not None:
+                        # A later APPEND/COPY may carry an older INTERNALDATE.
+                        first_uid = (
+                            min(first_uid, transition.new_uidnext)
+                            if first_uid is not None else transition.new_uidnext
+                        )
+
+                initial_cursor = None
+                if candidate.cursor is None:
+                    last_uid = first_uid - 1 if first_uid is not None else inbox.uidnext - 1
+                    initial_cursor = str(ImapCursor(inbox.uidvalidity, last_uid))
+                if address_changed:
+                    if has_pending_work(db, saved_address):
+                        raise MailboxTransitionPending(transition_work(db, transition))
+                    db.rollback()
+
+                # A send already using the old SMTP connection must finish before
+                # the swap. A queued send rechecks the active state after the swap.
+                async with AsyncExitStack() as send_guard:
+                    if previous is not None:
+                        await send_guard.enter_async_context(previous.send_lock)
+                        previous.stop_event.set()
+                        previous_stopping = True
+                        if task is not None and not task.done():
+                            try:
+                                await asyncio.wait_for(
+                                    asyncio.shield(task), timeout=imap_settings.TIMEOUT_SECONDS
+                                )
+                            except TimeoutError as exc:
+                                raise MailboxActivationFailed(
+                                    "Previous IMAP poll is still stopping"
+                                ) from exc
+                        if address_changed and has_pending_work(db, saved_address):
+                            raise MailboxTransitionPending(transition_work(db, transition))
+
+                    if previous is not None and previous.address == candidate.address:
+                        # The old poller may have advanced the cursor during validation.
+                        latest_cursor = ImapMailboxRepository(db).cursor_for_store(store_id)
+                        if latest_cursor is not None:
+                            initial_cursor = None
+                        candidate.cursor = latest_cursor or initial_cursor
+                    else:
+                        candidate.cursor = initial_cursor
+                    if address_changed and previous is None and has_pending_work(
+                        db, saved_address
+                    ):
+                        raise MailboxTransitionPending(transition_work(db, transition))
+                    if transition is not None:
+                        db.add(transition)
+                        transition.status = "completed"
+                        transition.completed_at = datetime.now(UTC)
+                        # Older waiting transitions may have been recorded before
+                        # this pre-checkpoint interval was made visible to admins.
+                        transition.backfill_review_required = True
+                    settings, created = save_mailbox(
+                        db, store_id, request, initial_cursor=initial_cursor
+                    )
+                    if previous is not None:
+                        self._mailboxes.pop(previous.address, None)
+                        self._poll_tasks.pop(store_id, None)
+                    self._mailboxes[candidate.address] = candidate
+                    self._activation[store_id] = ("active", None)
+                    self._poll_tasks[store_id] = asyncio.create_task(
+                        self._poll_forever(candidate), name=f"imap-poll-{candidate.address}"
+                    )
+                    activated = True
+                logger.info("IMAP Mailbox %s activated without restart", candidate.address)
+                return settings, created
+            except MailboxActivationFailed as error:
+                if transition is not None:
+                    db.rollback()
+                    if transition.new_uidnext is None:
+                        transition.backfill_review_required = True
+                    transition.activation_error = str(error)
+                    db.commit()
+                raise
+            finally:
+                if not activated:
+                    if previous is not None and previous_stopping:
+                        self._resume_previous(previous, previous_status)
+                    await asyncio.to_thread(candidate.client.drop_connection)
+                elif previous is not None:
+                    try:
+                        await asyncio.to_thread(previous.client.drop_connection)
+                    except Exception:
+                        logger.exception(
+                            "IMAP Mailbox %s old connection cleanup failed", previous.address
+                        )
+
+    async def cancel_address_change(self, db: Session, store_id: str) -> bool:
+        async with self._activation_lock:
+            return cancel_transition(db, store_id)
 
     async def send_message(
         self, mailbox: str, conversation_id: str, text: str, idempotency_key: str
@@ -249,10 +557,19 @@ class ImapAdapter(MailboxAdapter):
         """Reply to the Conversation's last inbound sender only (no reply-all). A reply
         already sent under `idempotency_key` is skipped. An SMTP failure raises, so the
         send task goes to retry and dead-letter, and the retry sends it."""
-        state = self._mailboxes.get(mailbox.lower())
-        if state is None:
-            raise LookupError(f"IMAP: no usable Mailbox {mailbox!r} to reply from")
+        while True:
+            state = self._mailboxes.get(mailbox.lower())
+            if state is None:
+                raise LookupError(f"IMAP: no usable Mailbox {mailbox!r} to reply from")
+            async with state.send_lock:
+                if self._mailboxes.get(mailbox.lower()) is not state:
+                    continue
+                await self._send_with_state(state, conversation_id, text, idempotency_key)
+                return
 
+    async def _send_with_state(
+        self, state: _MailboxState, conversation_id: str, text: str, idempotency_key: str
+    ) -> None:
         db = SessionLocal()
         try:
             sent_reply = self._claim_send(db, state, conversation_id, idempotency_key)
@@ -363,31 +680,35 @@ class ImapAdapter(MailboxAdapter):
         return reply, parent.sender_address
 
     async def _poll_forever(self, state: _MailboxState) -> None:
-        while not self._stopping.is_set():
+        while not self._stopping.is_set() and not state.stop_event.is_set():
             try:
                 await self._poll(state)
+                self._set_activation_if_current(state, "active", None)
             except MailboxLoginRejected as error:
+                self._set_activation_if_current(state, "failed", "IMAP login was rejected")
                 logger.error(
                     "IMAP Mailbox %s: login rejected (%s). Polling of this Mailbox is "
-                    "stopped; other Mailboxes keep running. If the Google account's "
-                    "password changed, its app password was revoked: set a new one in its "
-                    "imap_mailboxes row and restart.",
+                    "stopped; other Mailboxes keep running. Update its saved app password "
+                    "or use the retry endpoint after connectivity is restored.",
                     state.address,
                     error,
                 )
                 return
-            except Exception:
+            except Exception as error:
+                self._set_activation_if_current(
+                    state, "failed", f"IMAP polling failed ({type(error).__name__}); retrying"
+                )
                 logger.exception("IMAP Mailbox %s: poll failed", state.address)
             try:
                 await asyncio.wait_for(
-                    self._stopping.wait(), timeout=imap_settings.POLL_INTERVAL_SECONDS
+                    state.stop_event.wait(), timeout=imap_settings.POLL_INTERVAL_SECONDS
                 )
             except TimeoutError:
                 pass
 
     async def _poll(self, state: _MailboxState) -> None:
         await self._sink_undelivered(state.address)
-        self._purge_delivered(state.address)
+        self._purge_delivered(state.store_id, state.address)
         inbox = await asyncio.to_thread(state.client.open_inbox)
         db = SessionLocal()
         try:
@@ -464,7 +785,7 @@ class ImapAdapter(MailboxAdapter):
         sizes = await asyncio.to_thread(inbox.sizes, uids)
         last_uid = position.last_uid
         for uid in uids:
-            if self._stopping.is_set():
+            if self._stopping.is_set() or state.stop_event.is_set():
                 break
             size = sizes.get(uid)
             if size is not None and size > MAX_MESSAGE_BYTES:
@@ -534,12 +855,44 @@ class ImapAdapter(MailboxAdapter):
             await asyncio.to_thread(inbox.mark_read, uid)
             return None
         external_message_id, conversation_id = self._ids(state, message, headers, thread_repo)
+        if captured_under_retired_address(
+            db, state.store_id, state.address, external_message_id
+        ):
+            logger.info(
+                "IMAP Mailbox %s: skipping UID %s, already ingested under a retired address",
+                state.address,
+                uid,
+            )
+            await asyncio.to_thread(inbox.mark_read, uid)
+            self._commit_cursor(db, state, ImapCursor(inbox.uidvalidity, uid))
+            return None
         normalized = normalize_imap_message(
             state.mailbox_key,
             message.raw,
             external_message_id=external_message_id,
             conversation_id=conversation_id,
             received_at=message.internal_date,
+        )
+        service = self._capture_factory(db)
+        candidates = extract_imap_attachment_candidates(message.raw)
+
+        async def load(_candidate, position):
+            part = candidates[position][1]
+            data = part.get_payload(decode=True)
+            if data is None and part.get_content_type() == "message/rfc822":
+                attached_message = part.get_payload()
+                if isinstance(attached_message, list) and attached_message:
+                    data = attached_message[0].as_bytes()
+            return data
+
+        await capture_attachments(
+            service,
+            normalized,
+            [candidate for candidate, _ in candidates],
+            load,
+            provider="IMAP",
+            logger=logger,
+            failure_detail="The attachment could not be decoded from the email.",
         )
         thread_repo.record_inbound(
             state.mailbox_key,
@@ -623,15 +976,36 @@ class ImapAdapter(MailboxAdapter):
         finally:
             db.close()
 
-    def _purge_delivered(self, mailbox: str) -> None:
+    def _purge_delivered(self, store_id: str, active_mailbox: str) -> None:
         cutoff = datetime.now(UTC) - timedelta(days=settings.SUPPORT_RETENTION_DAYS)
         db = SessionLocal()
         try:
-            db.query(ImapOutboxMessage).filter(
-                ImapOutboxMessage.mailbox == mailbox,
+            # A change can wait or replay beyond the payload retention window.
+            # Keep only old message IDs so either phase remains idempotent.
+            protected_mailboxes = {
+                mailbox for (mailbox,) in db.query(
+                    ImapAddressTransition.previous_mailbox
+                ).filter(
+                    ImapAddressTransition.store_id == store_id,
+                    ImapAddressTransition.status.in_(("waiting", "completed")),
+                ).all()
+            }
+            expired = db.query(ImapOutboxMessage).filter(
                 ImapOutboxMessage.status == ImapOutboxStatus.delivered,
                 ImapOutboxMessage.delivered_at < cutoff,
-            ).delete(synchronize_session=False)
+            )
+            if protected_mailboxes:
+                expired.filter(ImapOutboxMessage.mailbox.in_(protected_mailboxes)).update(
+                    {
+                        ImapOutboxMessage.normalized_payload: {},
+                        ImapOutboxMessage.status: ImapOutboxStatus.tombstone,
+                    },
+                    synchronize_session=False,
+                )
+            if active_mailbox not in protected_mailboxes:
+                expired.filter(ImapOutboxMessage.mailbox == active_mailbox).delete(
+                    synchronize_session=False
+                )
             db.commit()
         finally:
             db.close()

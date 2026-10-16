@@ -27,6 +27,22 @@ class TaskRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def has_pending_for_mailbox(self, mailbox_key: MailboxKey) -> bool:
+        """Whether switching away from this address would strand queued work."""
+        return self.count_pending_for_mailbox(mailbox_key) > 0
+
+    def count_pending_for_mailbox(self, mailbox_key: MailboxKey) -> int:
+        """Open and running tasks that must drain before an address change."""
+        return (
+            self.db.query(IngestionTask.id)
+            .filter(
+                IngestionTask.adapter == mailbox_key.adapter,
+                IngestionTask.mailbox == mailbox_key.mailbox,
+                IngestionTask.status.in_((TaskStatus.open.value, TaskStatus.running.value)),
+            )
+            .count()
+        )
+
     def enqueue(
         self,
         *,
@@ -77,6 +93,47 @@ class TaskRepository:
             external_message_id=external_message_id,
         )
         self.db.add(task)
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            return None
+        self.db.refresh(task)
+        return task
+
+    def enqueue_unique_task_if_absent(
+        self,
+        *,
+        task_type: str,
+        mailbox_key: MailboxKey,
+        conversation_id: str,
+        external_message_id: str,
+        payload: dict,
+        commit: bool = True,
+    ) -> IngestionTask | None:
+        """Queue a file-keyed task once, including after worker retries."""
+        existing = (
+            self.db.query(IngestionTask.id)
+            .filter_by(
+                task_type=task_type,
+                adapter=mailbox_key.adapter,
+                mailbox=mailbox_key.mailbox,
+                external_message_id=external_message_id,
+            )
+            .first()
+        )
+        if existing:
+            return None
+        task = self.enqueue(
+            task_type=task_type,
+            mailbox_key=mailbox_key,
+            conversation_id=conversation_id,
+            external_message_id=external_message_id,
+            payload=payload,
+            commit=False,
+        )
+        if not commit:
+            return task
         try:
             self.db.commit()
         except IntegrityError:

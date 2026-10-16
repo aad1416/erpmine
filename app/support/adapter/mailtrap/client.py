@@ -6,11 +6,31 @@ existing pattern) rather than a generated SDK, since Mailtrap has no Python clie
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
 MAILTRAP_API_BASE_URL = "https://mailtrap.io"
+
+
+def _validate_attachment_url(url: str) -> None:
+    """Reject direct requests to local services and unsafe redirect targets."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if parsed.scheme != "https" or not hostname or parsed.username or parsed.password:
+        raise ValueError("Mailtrap returned an invalid attachment URL")
+    if parsed.port not in (None, 443):
+        raise ValueError("Mailtrap returned an invalid attachment URL")
+    if hostname == "localhost" or hostname.endswith((".localhost", ".local", ".internal")):
+        raise ValueError("Mailtrap returned a local attachment URL")
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+    if not address.is_global:
+        raise ValueError("Mailtrap returned a nonpublic attachment URL")
 
 
 class MailtrapClient:
@@ -41,6 +61,34 @@ class MailtrapClient:
             )
             response.raise_for_status()
             return response.json()
+
+    async def download_attachment(self, download_url: str, max_bytes: int) -> bytes:
+        """Fetch a signed provider URL with a decoded-size limit."""
+        _validate_attachment_url(download_url)
+        chunks = []
+        received = 0
+        transport = httpx.AsyncHTTPTransport(retries=2)
+        async with httpx.AsyncClient(
+            timeout=30.0, follow_redirects=False, transport=transport
+        ) as client:
+            current_url = download_url
+            for _ in range(4):
+                _validate_attachment_url(current_url)
+                async with client.stream("GET", current_url) as response:
+                    if response.is_redirect:
+                        location = response.headers.get("location")
+                        if not location:
+                            raise ValueError("Mailtrap attachment redirect had no location")
+                        current_url = urljoin(current_url, location)
+                        continue
+                    response.raise_for_status()
+                    async for chunk in response.aiter_bytes():
+                        received += len(chunk)
+                        if received > max_bytes:
+                            raise ValueError("Mailtrap attachment exceeds the download limit")
+                        chunks.append(chunk)
+                    return b"".join(chunks)
+            raise ValueError("Mailtrap attachment redirected too many times")
 
     async def reply(self, message_id: str, text: str) -> dict[str, Any]:
         """Threads to `message_id`, subject auto-prefixed `Re:` by Mailtrap, defaults to

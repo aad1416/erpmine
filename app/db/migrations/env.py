@@ -24,6 +24,7 @@ from app.db.models.FeatureClassroom import FeatureClassroom
 from app.db.models.Conversation import Conversation
 from app.db.models.ConversationMessage import ConversationMessage
 from app.db.models.PendingLogSync import PendingLogSync
+from app.db.models.EmailAttachment import EmailAttachment
 
 # app/support/ is an isolated package (see 02-architecture-decisions.md §9.1) but its
 # models still register on the same shared Base/metadata (§9.4) — import them here too.
@@ -36,6 +37,7 @@ from app.support.adapter.gmail.models import (
 )
 from app.support.adapter.imap.models import (
     ImapMailbox,
+    ImapAddressTransition,
     ImapOutboxMessage,
     ImapSentReply,
     ImapThreadMessage,

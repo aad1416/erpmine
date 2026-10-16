@@ -22,7 +22,12 @@ from datetime import datetime, UTC
 from typing import Any, Callable
 
 from app.db.database import SessionLocal
+from app.config.email_attachments import MAX_FILE_SIZE_BYTES
+from app.support.adapter.attachment_capture_port import (
+    AttachmentCaptureFactory, make_attachment_capture,
+)
 from app.support.adapter.base import MailboxAdapter, MessageSink, adapter
+from app.support.adapter.capture_attachments import capture_attachments
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.mailtrap.client import MailtrapClient
 from app.support.adapter.mailtrap.models import (
@@ -30,7 +35,10 @@ from app.support.adapter.mailtrap.models import (
     MailtrapMailbox,
     MailtrapSentReply,
 )
-from app.support.adapter.mailtrap.normalize import normalize_mailtrap_message
+from app.support.adapter.mailtrap.normalize import (
+    extract_mailtrap_attachment_candidates,
+    normalize_mailtrap_message,
+)
 from app.support.adapter.mailtrap.settings import mailtrap_settings
 from app.support.adapter.schemas import NormalizedMessage
 
@@ -57,8 +65,10 @@ class MailtrapAdapter(MailboxAdapter):
         self,
         credential_rows: list[MailtrapMailbox],
         client_factory: MailtrapClientFactory | None = None,
+        capture_factory: AttachmentCaptureFactory = make_attachment_capture,
     ) -> None:
         client_factory = client_factory or MailtrapClient
+        self._capture_factory = capture_factory
         self._inboxes: dict[str, _Inbox] = {}
         for row in credential_rows:
             mailbox_key = MailboxKey.of(ADAPTER_NAME, row.mailbox)
@@ -190,6 +200,7 @@ class MailtrapAdapter(MailboxAdapter):
         for index, summary in enumerate(new_summaries):
             raw = await inbox.client.get_message(summary["id"])
             message = normalize_mailtrap_message(inbox.mailbox_key, raw)
+            await self._capture_attachments(inbox, message, raw)
             # Before the sink, so the reply the worker queues for it can find it.
             self._record_last_inbound(message, summary["received_at"])
             await self._sink(message)
@@ -198,6 +209,27 @@ class MailtrapAdapter(MailboxAdapter):
             following = new_summaries[index + 1] if index + 1 < len(new_summaries) else None
             if following is None or _received_at(following) != _received_at(summary):
                 self._save_cursor(inbox, summary["received_at"])
+
+    async def _capture_attachments(
+        self, inbox: _Inbox, message: NormalizedMessage, raw: dict[str, Any]
+    ) -> None:
+        db = SessionLocal()
+        try:
+            service = self._capture_factory(db)
+            candidates = extract_mailtrap_attachment_candidates(raw)
+            async def load(candidate, _position):
+                if candidate.download_url:
+                    return await inbox.client.download_attachment(
+                        candidate.download_url, MAX_FILE_SIZE_BYTES + 1
+                    )
+                return None
+
+            await capture_attachments(
+                service, message, candidates, load, provider="Mailtrap", logger=logger,
+                failure_detail="The attachment could not be downloaded from Mailtrap.",
+            )
+        finally:
+            db.close()
 
     async def _list_since_cursor(self, inbox: _Inbox) -> list[dict[str, Any]]:
         """Message summaries newer than the cursor, oldest first. Walks pages newest to

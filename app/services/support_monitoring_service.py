@@ -36,7 +36,9 @@ from app.schemas.support_monitoring import (
     TimelineMessageEntry,
     TimelineTaskEntry,
 )
+from app.support.adapter.gmail.models import GmailMailbox
 from app.support.adapter.imap.models import ImapMailbox
+from app.support.adapter.imap.transition_service import retired_mailboxes
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.registry import configured_mailboxes
 from app.support.ingestion.models import IngestionTask, TaskStatus, TaskType
@@ -51,8 +53,8 @@ def resolve_store_mailboxes(
 ) -> list[MailboxKey]:
     """Resolve only configured mailboxes owned by the admin's store.
 
-    IMAP records carry an explicit store ID. Gmail API and Mailtrap records do not,
-    so their address must match the store's email in Lyndom.
+    IMAP and newly configured Gmail records carry an explicit store ID. Legacy
+    unowned Gmail and Mailtrap records use the store's email in Lyndom.
     """
     store_id = store_id.strip() if store_id else ""
     if not store_id:
@@ -71,8 +73,22 @@ def resolve_store_mailboxes(
         .filter(ImapMailbox.store_id == store_id)
         .all()
     }
+    owned_imap_addresses.update(retired_mailboxes(db, store_id))
+    gmail_owners = {
+        address.lower(): owner
+        for address, owner in db.query(GmailMailbox.mailbox, GmailMailbox.store_id).all()
+    }
+    mailboxes.extend(
+        MailboxKey.of("imap", address)
+        for address in sorted(owned_imap_addresses)
+        if MailboxKey.of("imap", address) not in mailboxes
+    )
     store_email = None
-    if any(key.adapter in ("gmail", "mailtrap") for key in mailboxes):
+    if any(
+        key.adapter == "mailtrap"
+        or (key.adapter == "gmail" and gmail_owners.get(key.mailbox) is None)
+        for key in mailboxes
+    ):
         email = lyndom_db.get_store_email(store_id)
         store_email = email.strip().lower() if email and email.strip() else None
 
@@ -80,7 +96,13 @@ def resolve_store_mailboxes(
         key
         for key in mailboxes
         if (key.adapter == "imap" and key.mailbox in owned_imap_addresses)
-        or (key.adapter in ("gmail", "mailtrap") and key.mailbox == store_email)
+        or (key.adapter == "gmail" and gmail_owners.get(key.mailbox) == store_id)
+        or (
+            key.adapter == "gmail"
+            and gmail_owners.get(key.mailbox) is None
+            and key.mailbox == store_email
+        )
+        or (key.adapter == "mailtrap" and key.mailbox == store_email)
     ]
 
 

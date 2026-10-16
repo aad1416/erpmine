@@ -70,6 +70,20 @@ class UpdateImapMailbox(CreateImapMailbox):
         return value
 
 
+class ImapTransitionWork(BaseModel):
+    previous_mailbox: str
+    new_mailbox: str
+    status: Literal["waiting", "completed"]
+    pending_task_count: int
+    captured_message_count: int
+    dead_letter_reply_count: int
+    unconfirmed_reply_count: int
+    backfill_review_required: bool = False
+    needs_attention: bool
+    action: str | None = None
+    activation_error: str | None = None
+
+
 class ImapMailboxSettings(BaseModel):
     mailbox: str
     imap_host: str
@@ -78,4 +92,9 @@ class ImapMailboxSettings(BaseModel):
     smtp_host: str
     smtp_port: int
     smtp_tls_mode: Literal["ssl", "starttls"]
-    restart_required: bool = True
+    restart_required: bool = False
+    activation_status: Literal[
+        "active", "activating", "failed", "unavailable"
+    ] = "unavailable"
+    activation_error: str | None = None
+    transition: ImapTransitionWork | None = None

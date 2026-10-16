@@ -26,8 +26,23 @@ def enqueue_backfill(
     PendingLogSync row, to be drained by log_sync_retry_job.py. `commit=False` defers to
     a caller-owned transaction."""
     unsynced = ConversationMessageRepository(db).get_unsynced(conversation.id)
+    if not unsynced:
+        if commit:
+            db.commit()
+        return
+    existing_ids = {
+        message_id
+        for (message_id,) in db.query(PendingLogSync.conversation_message_id)
+        .filter(
+            PendingLogSync.conversation_message_id.in_(
+                [message.id for message in unsynced]
+            )
+        )
+        .all()
+    }
     for message in unsynced:
-        db.add(PendingLogSync(ticket_id=ticket_id, conversation_message_id=message.id))
+        if message.id not in existing_ids:
+            db.add(PendingLogSync(ticket_id=ticket_id, conversation_message_id=message.id))
     if commit:
         db.commit()
 
@@ -37,15 +52,25 @@ class CommunicationLogClient:
         self._base_url = settings.TICKET_API_BASE_URL
         self._token = settings.TICKET_API_BEARER_TOKEN
 
-    async def send_message(self, ticket_id: str, text: str) -> bool:
+    async def send_message(
+        self,
+        ticket_id: str,
+        text: str,
+        *,
+        idempotency_key: str,
+        is_sender_the_client: bool,
+    ) -> bool:
         # AI actor auth (authMode: 'AI') — same Bearer api-token path used by
         # TicketClient for the sibling /ai endpoints, not a human user JWT.
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "x-id": idempotency_key,
+        }
         async with httpx.AsyncClient(base_url=self._base_url, timeout=15.0) as client:
             try:
                 response = await client.post(
                     f"/store-panel/field-service-ticket/{ticket_id}/message/ai",
-                    json={"text": text},
+                    json={"text": text, "isSenderTheClient": is_sender_the_client},
                     headers=headers,
                 )
             except httpx.HTTPError:
@@ -53,4 +78,12 @@ class CommunicationLogClient:
                     "Communication log send_message failed for ticket %s", ticket_id
                 )
                 return False
+        if response.status_code != 200:
+            logger.warning(
+                "Communication log API rejected ticket %s message %s: HTTP %s, response %s",
+                ticket_id,
+                idempotency_key,
+                response.status_code,
+                response.text[:500],
+            )
         return response.status_code == 200

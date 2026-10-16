@@ -10,8 +10,8 @@ import base64
 from datetime import datetime, UTC
 from typing import Any
 
-from bs4 import BeautifulSoup
-
+from app.support.adapter.attachment_candidates import AttachmentCandidate
+from app.support.adapter.html_body import html_to_text
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.schemas import NormalizedMessage
 
@@ -51,17 +51,35 @@ def _extract_body_text(payload: dict[str, Any]) -> str:
         if part.get("mimeType") == "text/html":
             html = _decode_part_body(part.get("body", {}).get("data"))
             if html.strip():
-                return BeautifulSoup(html, "html.parser").get_text(separator="\n").strip()
+                return html_to_text(html)
 
     return ""
 
 
 def _has_attachments(payload: dict[str, Any]) -> bool:
-    for part in _walk_parts(payload):
-        filename = part.get("filename")
-        if filename:
-            return True
-    return False
+    return bool(extract_gmail_attachment_candidates(payload))
+
+
+def extract_gmail_attachment_candidates(payload: dict[str, Any]) -> list[AttachmentCandidate]:
+    """Return named files regardless of attachment or inline disposition."""
+    candidates = []
+    for index, part in enumerate(_walk_parts(payload)):
+        file_name = (part.get("filename") or "").strip()
+        if not file_name:
+            continue
+        body = part.get("body", {}) or {}
+        download_id = body.get("attachmentId")
+        candidates.append(
+            AttachmentCandidate(
+                external_attachment_id=str(download_id or part.get("partId") or f"part-{index}"),
+                file_name=file_name,
+                content_type=part.get("mimeType") or "application/octet-stream",
+                declared_size=int(body.get("size") or 0),
+                inline_data=body.get("data"),
+                download_id=download_id,
+            )
+        )
+    return candidates
 
 
 def normalize_gmail_message(

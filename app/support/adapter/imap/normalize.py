@@ -23,8 +23,8 @@ from email.message import EmailMessage
 from email.parser import BytesHeaderParser
 from email.utils import parseaddr
 
-from bs4 import BeautifulSoup
-
+from app.support.adapter.attachment_candidates import AttachmentCandidate
+from app.support.adapter.html_body import html_to_text
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.schemas import NormalizedMessage
 
@@ -43,7 +43,7 @@ def _decode_text_part(part: EmailMessage) -> str:
 
 
 def _html_to_text(html: str) -> str:
-    return BeautifulSoup(html, "html.parser").get_text(separator="\n").strip()
+    return html_to_text(html)
 
 
 def _extract_body_text(message: EmailMessage) -> str:
@@ -61,11 +61,40 @@ def _extract_body_text(message: EmailMessage) -> str:
 
 
 def _has_attachments(message: EmailMessage) -> bool:
-    return any(
-        part.get_content_disposition() == "attachment" or part.get_filename()
-        for part in message.walk()
-        if not part.is_multipart()
-    )
+    return bool(_attachment_parts(message))
+
+
+def _attachment_parts(message: EmailMessage) -> list[tuple[AttachmentCandidate, EmailMessage]]:
+    """Find attachments and named inline files without treating unnamed body parts as files."""
+    candidates: list[tuple[AttachmentCandidate, EmailMessage]] = []
+    part_index = 0
+
+    def visit(part: EmailMessage) -> None:
+        nonlocal part_index
+        index = part_index
+        part_index += 1
+        disposition = part.get_content_disposition()
+        file_name = part.get_filename()
+        if disposition == "attachment" or file_name:
+            candidates.append((
+                AttachmentCandidate(
+                    external_attachment_id=f"part-{index}",
+                    file_name=file_name or f"attachment-{index}",
+                    content_type=part.get_content_type(),
+                ),
+                part,
+            ))
+            return
+        if part.is_multipart():
+            for child in part.iter_parts():
+                visit(child)
+
+    visit(message)
+    return candidates
+
+
+def extract_imap_attachment_candidates(raw: bytes) -> list[tuple[AttachmentCandidate, EmailMessage]]:
+    return _attachment_parts(email.message_from_bytes(raw, policy=email.policy.default))
 
 
 def sender(message: EmailMessage) -> tuple[str | None, str]:

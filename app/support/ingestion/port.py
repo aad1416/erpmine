@@ -45,3 +45,25 @@ async def process_create_ticket(
         payload=payload,
     )
 
+
+async def process_ticket_attachment(
+    task_id: str, adapter: str, mailbox: str, conversation_id: str, payload: dict
+) -> None:
+    from app.services.conversation_service import handle_ticket_attachment_task
+
+    await handle_ticket_attachment_task(
+        task_id=task_id,
+        adapter=adapter,
+        mailbox=mailbox,
+        conversation_id=conversation_id,
+        payload=payload,
+    )
+
+
+async def finalize_ticket_attachment_failure(
+    task_id: str, adapter: str, mailbox: str, conversation_id: str,
+    attachment_id: str, reason: str,
+) -> None:
+    from app.services.conversation_service import finalize_ticket_attachment_failure as finalize
+
+    finalize(task_id, adapter, mailbox, conversation_id, attachment_id, reason)

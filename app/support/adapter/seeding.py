@@ -88,6 +88,13 @@ def _upsert(session: Session, adapter_name: str, row: Any, dry_run: bool) -> See
             "Mailbox address"
         )
     mailbox = "/".join(str(key_value) for key_value in identity)
+    if adapter_name == "imap":
+        # Retired IMAP addresses remain visible in their original store's support
+        # history. Seeding must enforce the same ownership rule as the settings API.
+        from app.support.adapter.imap.transition_service import address_owned_by_other_store
+
+        if address_owned_by_other_store(session, row.mailbox, row.store_id):
+            raise ValueError("IMAP mailbox address belongs to another store's support history")
     # Only what the seeder set, not the columns it left to their defaults.
     seeded_values = {
         column_attribute.key: row_state.dict[column_attribute.key]
@@ -96,6 +103,19 @@ def _upsert(session: Session, adapter_name: str, row: Any, dry_run: bool) -> See
     }
 
     existing = session.get(type(row), identity)
+    if adapter_name == "imap" and existing is not None and existing.store_id != row.store_id:
+        raise ValueError("IMAP mailbox address is already assigned to another store")
+    if adapter_name == "imap" and existing is None:
+        from app.support.adapter.imap.models import ImapMailbox
+
+        current_address = session.query(ImapMailbox.mailbox).filter_by(
+            store_id=row.store_id
+        ).scalar()
+        if current_address is not None:
+            raise ValueError(
+                "Store already has an active IMAP mailbox; update IMAP_MAILBOX_EMAIL "
+                "to match it or change the address through the settings API"
+            )
     if existing is None:
         if not dry_run:
             session.add(row)

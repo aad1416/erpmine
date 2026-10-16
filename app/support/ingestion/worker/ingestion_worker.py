@@ -1,14 +1,15 @@
 """The ingestion worker: claims the tasks the message sink and the AI core queue, per
 Conversation, and runs them (§5, §9.1).
 
-Three task types are processed asynchronously through this queue, in this order within a
+Four task types are processed asynchronously through this queue, in this order within a
 single locked pass, so work queued by one step is picked up by a later step in the same
 pass rather than waiting for the next one:
 
 1. `message` — inbound messages, batched per thread and handed to the AI core.
 2. `create_ticket` — enqueued when the decision agent picks that tool; executed via
    `port.process_create_ticket`, which calls the ticket API and resolves the outcome.
-3. `send_message` — every outbound customer-facing message, from any of the three tools
+3. `attach_ticket_file` — uploads each accepted original once a ticket ID is known.
+4. `send_message` — every outbound customer-facing message, from any of the three tools
    and from escalation; executed by the task's Mailbox Adapter, looked up in the Mailbox
    Registry by the task's adapter name.
 
@@ -46,6 +47,12 @@ import time
 from app.config.setting import settings
 from app.db.database import SessionLocal
 from app.services.seed_scheduler import seed_file_lock
+from app.services.email_attachment_ai_service import EmailAttachmentAIService
+from app.services.email_attachment_retention_service import EmailAttachmentRetentionService
+from app.config.email_attachments import (
+    OPENAI_FILE_INACTIVITY_DAYS,
+    UNUPLOADED_LOCAL_FILE_RETENTION_DAYS,
+)
 from app.support.adapter.registry import MailboxRegistry
 from app.support.adapter.schemas import NormalizedMessage
 from app.support.ingestion import port
@@ -74,7 +81,8 @@ async def _process_tasks(mailbox_registry: MailboxRegistry) -> None:
     # same pass is claimable (its message task is 'done' by now, not 'running') and
     # gets resolved before the pass releases the lock.
     await process_create_ticket_tasks()
-    # Last, so replies queued by either of the two steps above go out before the
+    await process_ticket_attachment_tasks()
+    # Last, so replies queued by any of the steps above go out before the
     # pass releases the lock.
     await process_send_message_tasks(mailbox_registry)
 
@@ -178,6 +186,58 @@ async def _process_one_create_ticket_task(conversation_id: str, task) -> None:
             db.close()
 
 
+async def process_ticket_attachment_tasks(max_conversations: int = 10) -> None:
+    db = SessionLocal()
+    try:
+        batches = TaskRepository(db).claim_open_batches(
+            TaskType.attach_ticket_file.value, max_conversations=max_conversations
+        )
+    finally:
+        db.close()
+
+    for (_adapter, _mailbox, conversation_id), tasks in batches.items():
+        for task in tasks:
+            await _process_one_ticket_attachment_task(conversation_id, task)
+
+
+async def _process_one_ticket_attachment_task(conversation_id: str, task) -> None:
+    db = SessionLocal()
+    try:
+        TaskRepository(db).refresh_heartbeat([task.id])
+    finally:
+        db.close()
+
+    try:
+        await port.process_ticket_attachment(
+            task_id=task.id,
+            adapter=task.adapter,
+            mailbox=task.mailbox,
+            conversation_id=conversation_id,
+            payload=task.payload,
+        )
+    except Exception as exc:
+        logger.exception("process_ticket_attachment failed for conversation_id=%s", conversation_id)
+        db = SessionLocal()
+        try:
+            status = TaskRepository(db).record_failure(
+                task.id, settings.SUPPORT_TASK_MAX_RETRIES, error_detail=str(exc)
+            )
+        finally:
+            db.close()
+        if status == "dead_letter":
+            try:
+                await port.finalize_ticket_attachment_failure(
+                    task_id=task.id,
+                    adapter=task.adapter,
+                    mailbox=task.mailbox,
+                    conversation_id=conversation_id,
+                    attachment_id=task.payload["attachment_id"],
+                    reason=str(exc),
+                )
+            except Exception:
+                logger.exception("finalizing failed attachment task %s failed", task.id)
+
+
 async def process_send_message_tasks(
     mailbox_registry: MailboxRegistry, max_conversations: int = 10
 ) -> None:
@@ -266,6 +326,29 @@ def purge_finished_tasks() -> None:
         db.close()
 
 
+async def purge_inactive_attachment_copies() -> None:
+    db = SessionLocal()
+    try:
+        attachment_service = EmailAttachmentRetentionService(
+            db, delete_openai_file=EmailAttachmentAIService(db).delete_openai_copy,
+        )
+        local_deleted = attachment_service.purge_uploaded_local_files()
+        if local_deleted:
+            logger.info("Deleted %d uploaded local attachment copy/copies", local_deleted)
+        expired = attachment_service.purge_expired_unuploaded_local_files(
+            UNUPLOADED_LOCAL_FILE_RETENTION_DAYS
+        )
+        if expired:
+            logger.info("Expired %d unuploaded local attachment copy/copies", expired)
+        purged = await attachment_service.purge_inactive_openai_files(
+            OPENAI_FILE_INACTIVITY_DAYS
+        )
+        if purged:
+            logger.info("Purged %d inactive OpenAI attachment copy/copies", purged)
+    finally:
+        db.close()
+
+
 class IngestionWorker:
     """Runs task passes in its own loop: at once when woken, otherwise every
     `fallback_interval_seconds` so tasks nobody woke it for (a reclaimed or retried
@@ -273,12 +356,17 @@ class IngestionWorker:
     pass and then once a day."""
 
     def __init__(
-        self, mailbox_registry: MailboxRegistry, fallback_interval_seconds: float
-    ) -> None:
+        self,
+        mailbox_registry: MailboxRegistry,
+        fallback_interval_seconds: float,
+        signal_bus=None):
+
         self.mailbox_registry = mailbox_registry
         self._fallback_interval_seconds = fallback_interval_seconds
+        self._signal_bus = signal_bus
         self._wake_event = asyncio.Event()
         self._loop_task: asyncio.Task | None = None
+        self._listener_task: asyncio.Task | None = None
         self._last_purge_at: float | None = None
 
     def start(self) -> None:
@@ -287,6 +375,8 @@ class IngestionWorker:
             raise RuntimeError("an ingestion worker is already running")
         _running_worker = self
         self._loop_task = asyncio.create_task(self._run(), name="support-ingestion-worker")
+        if self._signal_bus is not None:
+            self._listener_task = asyncio.create_task(self._listen_signals(), name="support-signal-listener")
         logger.info(
             "Ingestion worker started (fallback interval=%ss)", self._fallback_interval_seconds
         )
@@ -297,18 +387,29 @@ class IngestionWorker:
         global _running_worker
         if _running_worker is self:
             _running_worker = None
-        if self._loop_task is None:
-            return
-        self._loop_task.cancel()
-        try:
-            await self._loop_task
-        except asyncio.CancelledError:
-            pass
+
+        for task in (self._listener_task, self._loop_task):   # listener first
+            if task is None:
+                continue
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._listener_task = None
         self._loop_task = None
         logger.info("Ingestion worker stopped")
 
     def wake(self) -> None:
         self._wake_event.set()
+
+    async def _listen_signals(self) -> None:
+        """bridge Redis signals to the in-process wake event (leader only)"""
+        while True:
+            await self._signal_bus.wait_for_signal(
+                timeout=self._fallback_interval_seconds
+            )
+            self._wake_event.set()
 
     async def _purge_finished_tasks_if_due(self) -> None:
         now = time.monotonic()
@@ -320,8 +421,9 @@ class IngestionWorker:
         self._last_purge_at = now
         try:
             await asyncio.to_thread(purge_finished_tasks)
+            await purge_inactive_attachment_copies()
         except Exception:
-            logger.exception("Purging finished ingestion tasks failed")
+            logger.exception("Purging finished tasks or inactive attachment copies failed")
 
     async def _run(self) -> None:
         while True:
@@ -347,4 +449,3 @@ def wake_ingestion_worker() -> None:
     """Called by the message sink after it writes a task. A no-op when no worker runs."""
     if _running_worker is not None:
         _running_worker.wake()
-

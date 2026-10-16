@@ -4,10 +4,8 @@
 Mailbox Connection tables, mounts their routes, starts them with the message sink and
 starts the ingestion worker. `stop_support` stops the worker, then the adapters.
 
-Mailbox Connections are read once here, so adding a Mailbox takes effect on the next
-restart.
+IMAP Mailbox settings can also be activated in the running adapter after a save.
 """
-
 from __future__ import annotations
 
 import logging
@@ -19,78 +17,168 @@ from fastapi import FastAPI
 
 from app.config.setting import settings
 from app.db.database import SessionLocal
+from app.services.redis_service import RedisProvider
 from app.support.adapter.base import discover
 from app.support.adapter.registry import MailboxRegistry
 from app.support.ingestion.sink import message_sink
 from app.support.ingestion.worker.ingestion_worker import IngestionWorker
+from app.support.leader import (
+    SupportLeaderLock,
+    is_support_leader,
+    set_support_leader,
+    try_acquire_support_leader,
+)
+from app.support.signal_bus import get_signal_bus, init_signal_bus
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["start_support", "stop_support", "is_support_leader", "check_single_worker"]
+
 _mailbox_registry: MailboxRegistry | None = None
 _worker: IngestionWorker | None = None
+_leader_lock: SupportLeaderLock | None = None
+
+
+def _ensure_signal_bus(app: FastAPI) -> None:
+    redis = getattr(app.state, "redis", None)
+    if not isinstance(redis, RedisProvider):
+        redis = RedisProvider()
+        app.state.redis = redis
+    init_signal_bus(redis)
 
 
 async def start_support(app: FastAPI) -> MailboxRegistry:
-    global _mailbox_registry, _worker
-    check_single_worker()
+    global _mailbox_registry, _leader_lock
+
+    warn_if_multi_worker_without_flock()
+    _ensure_signal_bus(app)
+
     discover()
     db = SessionLocal()
     try:
         mailbox_registry = MailboxRegistry.load(db)
     finally:
         db.close()
-    app.include_router(mailbox_registry.router())
-    await mailbox_registry.start(message_sink)
-    _mailbox_registry = mailbox_registry
 
-    worker = IngestionWorker(
-        mailbox_registry, settings.SUPPORT_WORKER_FALLBACK_INTERVAL_SECONDS
-    )
-    worker.start()
-    _worker = worker
+    app.include_router(mailbox_registry.router())
+    _mailbox_registry = mailbox_registry
+    app.state.support_mailbox_registry = mailbox_registry
+
+    lock = try_acquire_support_leader(settings.SUPPORT_LEADER_LOCK_FILE)
+    if lock is None:
+        set_support_leader(False)
+        logger.info(
+            "Support follower (pid=%s): skipping mailbox adapters and ingestion worker "
+            "(another process holds %s)",
+            os.getpid(),
+            settings.SUPPORT_LEADER_LOCK_FILE,
+        )
+        return mailbox_registry
+
+    set_support_leader(True)
+    try:
+        await get_signal_bus().clear()
+        logger.info(
+            "Support leader (pid=%s): starting mailbox adapters and ingestion worker",
+            os.getpid(),
+        )
+        await mailbox_registry.start(message_sink)
+        await _start_ingestion_worker(mailbox_registry)
+    except Exception:
+        logger.exception("Support leader startup failed; releasing the lock")
+        await _roll_back_leader(mailbox_registry)
+        lock.release()
+        raise
+
+    _leader_lock = lock
     return mailbox_registry
 
 
-async def stop_support() -> None:
-    """The worker first, so no reply is sent through an adapter being stopped."""
-    global _mailbox_registry, _worker
+async def _start_ingestion_worker(mailbox_registry: MailboxRegistry) -> None:
+    global _worker
+    worker = IngestionWorker(
+        mailbox_registry,
+        settings.SUPPORT_WORKER_FALLBACK_INTERVAL_SECONDS,
+        signal_bus=get_signal_bus(),
+    )
+    _worker = worker
+    try:
+        worker.start()
+    except Exception:
+        _worker = None
+        await worker.stop()
+        raise
+
+
+async def _roll_back_leader(mailbox_registry: MailboxRegistry) -> None:
+    global _worker
+    set_support_leader(False)
     if _worker is not None:
         await _worker.stop()
         _worker = None
-    if _mailbox_registry is not None:
+    try:
+        await mailbox_registry.stop()
+    except Exception:
+        logger.exception("Failed to stop mailbox adapters after a leader startup error")
+
+
+async def stop_support() -> None:
+    global _mailbox_registry, _worker, _leader_lock
+
+    if _worker is not None:
+        await _worker.stop()
+        _worker = None
+
+    if is_support_leader() and _mailbox_registry is not None:
         await _mailbox_registry.stop()
-        _mailbox_registry = None
+
+    _mailbox_registry = None
+
+    if _leader_lock is not None:
+        _leader_lock.release()
+        _leader_lock = None
+
+    set_support_leader(False)
+
+
+def warn_if_multi_worker_without_flock(
+    argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
+) -> None:
+    try:
+        import fcntl as _fcntl
+    except ImportError:
+        count = _configured_worker_count(argv, environ)
+        if count is not None and count > 1:
+            logger.warning(
+                "WEB_CONCURRENCY/--workers is %s but fcntl is unavailable: every "
+                "process will run Support adapters and the ingestion worker. "
+                "Use a single worker or run Support on Linux.",
+                count,
+            )
 
 
 def check_single_worker(
     argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
 ) -> None:
-    """Refuses more than one uvicorn worker process: each would start every adapter and
-    poll the same Mailboxes. Checks what uvicorn itself reads, since every worker process
-    inherits it: `--workers N` / `--workers=N` on the command line, else the
-    `WEB_CONCURRENCY` environment variable. `--reload` makes uvicorn ignore both. Other
-    process managers (e.g. gunicorn `-w`) are not detected."""
+    warn_if_multi_worker_without_flock(argv, environ)
+
+
+def _configured_worker_count(
+    argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None
+) -> int | None:
     argv = sys.argv if argv is None else argv
     environ = os.environ if environ is None else environ
     if "--reload" in argv:
-        return
+        return 1
     workers = _workers_option(argv)
-    source = "--workers"
     if workers is None and environ.get("WEB_CONCURRENCY"):
         workers = environ["WEB_CONCURRENCY"]
-        source = "WEB_CONCURRENCY"
     if workers is None:
-        return
+        return None
     try:
-        worker_count = int(workers)
+        return int(workers)
     except ValueError:
-        raise RuntimeError(f"{source} is not a number: {workers!r}") from None
-    if worker_count > 1:
-        raise RuntimeError(
-            f"Support Email needs a single uvicorn worker, but {source} is {worker_count}: "
-            "each worker would start every Mailbox Adapter and poll the same Mailboxes. "
-            "Run it with one worker."
-        )
+        return None
 
 
 def _workers_option(argv: Sequence[str]) -> str | None:

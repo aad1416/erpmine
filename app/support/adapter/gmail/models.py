@@ -2,6 +2,7 @@ from datetime import datetime, UTC
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     Index,
@@ -27,6 +28,9 @@ class GmailMailbox(Base):
     __tablename__ = "gmail_mailboxes"
 
     mailbox = Column(String, primary_key=True)
+    # Legacy seeded rows have no owner until an administrator assigns one.
+    store_id = Column(String, nullable=True, index=True)
+    enabled = Column(Boolean, nullable=False, default=True, server_default="1")
     refresh_token = Column(EncryptedString, nullable=True)
     history_id = Column(String, nullable=True)
 

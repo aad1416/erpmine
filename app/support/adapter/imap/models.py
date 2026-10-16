@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, UTC
 
 from sqlalchemy import (
+    Boolean,
     JSON,
     Column,
     DateTime,
@@ -57,17 +58,44 @@ class ImapMailbox(Base):
     cursor = Column(String, nullable=True)
 
 
+class ImapAddressTransition(Base):
+    """Durable address change window and ownership of the retired address."""
+
+    __tablename__ = "imap_address_transitions"
+    __table_args__ = (
+        Index("ix_imap_address_transitions_store_status", "store_id", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    store_id = Column(String, nullable=False)
+    previous_mailbox = Column(String, nullable=False)
+    new_mailbox = Column(String, nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=False)
+    status = Column(String, nullable=False)  # waiting | completed | cancelled
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    activation_error = Column(String, nullable=True)
+    # The first successful probe's next UID catches later APPEND/COPY messages,
+    # including ones whose INTERNALDATE predates the transition.
+    new_uidvalidity = Column(Integer, nullable=True)
+    new_uidnext = Column(Integer, nullable=True)
+    new_endpoint = Column(String, nullable=True)
+    backfill_review_required = Column(Boolean, nullable=False, default=False, server_default="0")
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class ImapOutboxStatus:
     captured = "captured"
     delivered = "delivered"
+    tombstone = "tombstone"
 
 
 class ImapOutboxMessage(Base):
     """IMAP's own outbox. A message is written here as `captured` in the same
     transaction that moves the Mailbox's cursor past it, and marked `delivered` once the
     sink returns, so a crash in between re-sinks it on the next start. Delivered rows
-    are purged after SUPPORT_RETENTION_DAYS; until then they also stop a re-fetched
-    message (after a UIDVALIDITY change) from being handed over again."""
+    are purged after SUPPORT_RETENTION_DAYS. During an address transition, delivered
+    rows become payload-free tombstones instead: their message IDs prevent a late
+    replay under the replacement address from being handed over again."""
 
     __tablename__ = "imap_outbox"
     __table_args__ = (

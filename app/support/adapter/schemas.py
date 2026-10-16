@@ -4,9 +4,23 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.support.adapter.mailbox_key import MailboxKey
+
+
+class NormalizedAttachment(BaseModel):
+    """Small durable reference; file bytes and provider URLs stay out of task JSON."""
+
+    id: str | None = None
+    external_attachment_id: str
+    file_name: str
+    content_type: str = "application/octet-stream"
+    size: int = 0
+    capture_status: str = "pending"
+    capture_error: str | None = None
+    kind: str = "opaque"
+    ai_status: str = "unsupported"
 
 
 class NormalizedMessage(BaseModel):
@@ -23,6 +37,7 @@ class NormalizedMessage(BaseModel):
     body_text: str
     subject: str | None = None
     has_attachments: bool = False
+    attachments: list[NormalizedAttachment] = Field(default_factory=list)
 
     @field_validator("mailbox")
     @classmethod

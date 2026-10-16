@@ -13,6 +13,7 @@ from app.db.models.FeatureClassroom import FeatureClassroom
 from app.db.models.Conversation import Conversation
 from app.db.models.ConversationMessage import ConversationMessage
 from app.db.models.PendingLogSync import PendingLogSync
+from app.db.models.EmailAttachment import EmailAttachment
 
 
 __all__ = [
@@ -31,4 +32,5 @@ __all__ = [
     "Conversation",
     "ConversationMessage",
     "PendingLogSync",
+    "EmailAttachment",
 ]

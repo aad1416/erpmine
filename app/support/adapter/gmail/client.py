@@ -97,6 +97,12 @@ class GmailClient:
         profile = service.users().getProfile(userId="me").execute()
         return profile["historyId"]
 
+    def get_profile_email(self) -> str:
+        """Return the Gmail account authorized by this refresh token."""
+        service = self._get_service()
+        profile = service.users().getProfile(userId="me").execute()
+        return profile["emailAddress"]
+
     def get_message_full(self, message_id: str) -> dict[str, Any]:
         service = self._get_service()
         return (
@@ -105,6 +111,18 @@ class GmailClient:
             .get(userId="me", id=message_id, format="full")
             .execute()
         )
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> bytes:
+        """Download and base64url-decode an attachment body."""
+        service = self._get_service()
+        response = (
+            service.users().messages().attachments()
+            .get(userId="me", messageId=message_id, id=attachment_id)
+            .execute(num_retries=2)
+        )
+        encoded = response.get("data") or ""
+        encoded += "=" * (-len(encoded) % 4)
+        return base64.urlsafe_b64decode(encoded)
 
     def send_message(self, message: EmailMessage, thread_id: str | None) -> dict[str, Any]:
         service = self._get_service()
@@ -131,4 +149,3 @@ class GmailClient:
             .watch(userId="me", body={"topicName": topic_name, "labelIds": ["INBOX"]})
             .execute()
         )
-

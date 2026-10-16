@@ -21,7 +21,7 @@ import logging
 import ssl
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Protocol
 
 from imapclient import IMAPClient
@@ -102,6 +102,29 @@ class InboxSession:
         uids = self._imap.search(["SINCE", day])
         return min(uids) if uids else None
 
+    def first_uid_received_since(self, instant: datetime) -> int | None:
+        """First UID delivered during a changeover, without fetching message bodies.
+
+        IMAP SEARCH has day precision. Search from the preceding day to account for
+        server timezone differences, then compare each INTERNALDATE to the instant.
+        """
+        # IMAP INTERNALDATE has second precision. Include the whole first second
+        # rather than lose mail delivered after the request within that second.
+        cutoff = instant.astimezone(UTC).replace(microsecond=0)
+        uids = sorted(self._imap.search(["SINCE", (cutoff - timedelta(days=1)).date()]))
+        for offset in range(0, len(uids), 200):
+            dates = self._imap.fetch(uids[offset : offset + 200], [b"INTERNALDATE"])
+            for uid in uids[offset : offset + 200]:
+                data = dates.get(uid)
+                if data is None:
+                    continue
+                received_at = data[b"INTERNALDATE"]
+                if received_at.tzinfo is None:
+                    received_at = received_at.replace(tzinfo=UTC)
+                if received_at.astimezone(UTC) >= cutoff:
+                    return uid
+        return None
+
     def sizes(self, uids: list[int]) -> dict[int, int]:
         """RFC822.SIZE in bytes per UID; a UID expunged meanwhile is missing."""
         if not uids:
@@ -180,6 +203,23 @@ class ImapMailboxClient:
                 self.drop_connection()
         self._imap = self._connect()
         return self._imap
+
+    def inbox_uid_checkpoint(self) -> tuple[int, int]:
+        """Read the INBOX UID namespace before selecting it for the first probe.
+
+        A message appended after this STATUS response receives a UID at or above
+        UIDNEXT, even if its INTERNALDATE is older than the change request.
+        """
+        if self.login_rejected is not None:
+            raise MailboxLoginRejected(self.login_rejected)
+        try:
+            status = self._live_connection().folder_status(
+                INBOX, ["UIDVALIDITY", "UIDNEXT"]
+            )
+            return int(status[b"UIDVALIDITY"]), int(status[b"UIDNEXT"])
+        except Exception:
+            self.drop_connection()
+            raise
 
     def open_inbox(self) -> InboxSession:
         """INBOX selected read-write, on the live connection or a new one. Any error
