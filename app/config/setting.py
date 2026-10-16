@@ -118,8 +118,6 @@ class Settings(BaseSettings):
     # AI Support Ticket System (app/support/) — see app/support/10-implementation-plan.md
     SUPPORT_ENABLED: bool = True
     SUPPORT_LOCK_FILE: str = "/tmp/ut-ai-support.lock"
-    # Process lock for leader/follower pattern
-    SUPPORT_LEADER_LOCK_FILE: str = "/tmp/ut-ai-support-leader.lock"
 
     SUPPORT_TASK_MAX_RETRIES: int = 3
     SUPPORT_TASK_HEARTBEAT_TIMEOUT_SECONDS: int = 120
@@ -150,6 +148,12 @@ class Settings(BaseSettings):
     # Field Service Ticket API (Ali's panel — see app/support/04-ticket-api-contracts.md)
     TICKET_API_BASE_URL: str | None = "https://lyndom.com/api"
     TICKET_API_BEARER_TOKEN: str | None = None
+
+    # MCP (external LLM access)
+    MCP_ENABLED: bool = False
+    MCP_API_KEYS: str = "{}"  # JSON: {"key": {"name": "...", "feature_ids": [1,2]}}
+    MCP_RESOURCE_URL: str | None = None  # public URL of /mcp
+    MCP_STATELESS_HTTP: bool = True
 
     @field_validator("allowed_file_types", mode="before")
     @classmethod

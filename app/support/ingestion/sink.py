@@ -6,14 +6,12 @@ message, e.g. after a crash before it recorded the handover, creates no second t
 message counts as handed over once `message_sink` returns.
 """
 
-import asyncio
+from __future__ import annotations
 
 from app.db.database import SessionLocal
 from app.support.adapter.schemas import NormalizedMessage
 from app.support.ingestion.task_repository import TaskRepository
 from app.support.ingestion.worker.ingestion_worker import wake_ingestion_worker
-from app.support.init import is_support_leader
-from app.support.signal_bus import get_signal_bus
 
 
 async def message_sink(message: NormalizedMessage) -> None:
@@ -29,6 +27,3 @@ async def message_sink(message: NormalizedMessage) -> None:
         db.close()
     if task is not None:
         wake_ingestion_worker()
-        if not is_support_leader():
-            # fire and forget
-            asyncio.create_task(get_signal_bus().signal_leader())

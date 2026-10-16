@@ -36,6 +36,7 @@ from app.schemas.support_monitoring import (
     TimelineMessageEntry,
     TimelineTaskEntry,
 )
+from app.support.adapter.imap.models import ImapMailbox
 from app.support.adapter.mailbox_key import MailboxKey
 from app.support.adapter.registry import configured_mailboxes
 from app.support.ingestion.models import IngestionTask, TaskStatus, TaskType
@@ -48,24 +49,39 @@ _PENDING_TASK_STATUSES = (TaskStatus.open.value, TaskStatus.running.value)
 def resolve_store_mailboxes(
     store_id: str, lyndom_db: LyndomDBRepository, db: Session
 ) -> list[MailboxKey]:
-    """Maps an admin's store to the Mailbox(es) they're scoped to.
+    """Resolve only configured mailboxes owned by the admin's store.
 
-    Still hardwired to every Mailbox in the Mailbox Adapters' tables (the real per-store
-    lookup below stays commented out) rather than the store's own Mailbox.
+    IMAP records carry an explicit store ID. Gmail API and Mailtrap records do not,
+    so their address must match the store's email in Lyndom.
     """
-    # email = lyndom_db.get_store_email(store_id) if store_id else None
-    # if not email:
-    #     raise HTTPException(
-    #         status.HTTP_503_SERVICE_UNAVAILABLE,
-    #         detail="Store support inbox is not configured",
-    #     )
+    store_id = store_id.strip() if store_id else ""
+    if not store_id:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Admin token is missing a storeId")
+
     mailboxes = configured_mailboxes(db)
     if not mailboxes:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Store support inbox is not configured",
         )
-    return mailboxes
+
+    owned_imap_addresses = {
+        address.lower()
+        for (address,) in db.query(ImapMailbox.mailbox)
+        .filter(ImapMailbox.store_id == store_id)
+        .all()
+    }
+    store_email = None
+    if any(key.adapter in ("gmail", "mailtrap") for key in mailboxes):
+        email = lyndom_db.get_store_email(store_id)
+        store_email = email.strip().lower() if email and email.strip() else None
+
+    return [
+        key
+        for key in mailboxes
+        if (key.adapter == "imap" and key.mailbox in owned_imap_addresses)
+        or (key.adapter in ("gmail", "mailtrap") and key.mailbox == store_email)
+    ]
 
 
 def derive_status(
@@ -213,7 +229,9 @@ def list_threads(
     """`mailboxes` scopes the list to the caller's Mailboxes; `adapter` and `mailbox`
     narrow it further, to one Connection Method or one Mailbox address."""
     query = db.query(Conversation)
-    if mailboxes:
+    if mailboxes is not None:
+        if not mailboxes:
+            return ThreadListResponse(items=[], total=0, limit=limit, offset=offset)
         query = query.filter(
             or_(
                 *(
